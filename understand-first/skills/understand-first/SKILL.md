@@ -34,11 +34,13 @@ Do not skip ahead.
 1. **Problem.** The learner states the problem, the cause, and where in the code it lives, before Claude proposes anything.
 2. **Concepts.** Check the ledger. Teach only concepts that are new or shaky. For solid ones, use the term without explaining it, after a one-question spot-check. The learner explains each taught concept back, including when it fails.
 3. **Design.** Simplest-first options. The learner picks, says why, then retells the chosen design as a step-by-step flow, naming what was ruled out and the known limits.
-4. **Build.** Small slices, one behavior each, test first. The learner predicts each result before Claude runs it. Drive level is set by the learner (default 1):
-   - Level 1: Claude writes, the learner explains each part back.
-   - Level 2: Claude writes the test and skeleton, the learner writes the core logic.
-   - Level 3: the learner writes it, Claude reviews.
-   When the learner drives, Claude does not edit the file. Mechanical steps (installs, test runs, pushes) may run unattended once the design gate has passed. New logic may not be built unattended.
+4. **Build.** Small slices, one behavior each, test first. The learner predicts each result before Claude runs it. Claude proposes a drive level for each slice from the ledger and says which level and why; the learner may override it:
+   - Level 1: Claude writes, the learner explains each part back. Proposed for concepts that are new or shaky.
+   - Level 2: Claude writes the test and skeleton, the learner writes the core logic. Proposed for concepts the learner has explained back correctly but not yet written from scratch. This is the default for a concept not yet in the ledger once it has been taught in gate 2.
+   - Level 3: the learner writes it, Claude reviews. Proposed for solid concepts.
+   A miss on a recall question marks the concept shaky, which drops it back to level 1.
+   When the learner drives, Claude hands the work over and waits. The handoff states, in this form: "Your turn: open your editor. File: <path>. Write: <function and exactly what it must do>. Leave alone: <everything else>. Run: <test command>. Come back and tell me when you are done or stuck." Claude then stops: it does not edit that file, run its tests, or nudge. The learner takes as long as they want and runs their own tests. When they return, Claude reads the file, reviews it, and the learner explains it and predicts its test results before Claude runs anything.
+   Mechanical steps (installs, test runs, pushes) may run unattended once the design gate has passed. New logic may not be built unattended.
 5. **Review findings.** One at a time. The learner names the rule and proposes the fix before Claude shows its own. If a review skill is installed, run it; the learner still walks every finding.
 6. **Teach-back before any commit, push or PR.**
    - The learner explains the change to a skeptical architect (Claude), who asks five questions: why not simpler, what fails, what is untested, what was rejected, what are the known limits.
@@ -70,6 +72,7 @@ target-language: PHP
 Statuses:
 - **new**: not yet covered or assessed.
 - **shaky**: explained with stumbles, missed a recall question, or stale.
+- **explained**: explained back correctly in the learner's own words, not yet written from scratch.
 - **solid**: explained correctly and used, meaning it drove a design decision or was written from scratch.
 
 Keep entries short. Merge concepts that overlap. Never mark a concept solid on the learner's fluent restatement alone; the from-scratch write is the real check.
