@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir() {
+  case "$0" in
+    */*) (cd "${0%/*}" && pwd) ;;
+    *) pwd ;;
+  esac
+}
+
+escape_for_json() {
+  local text="$1"
+  text="${text//\\/\\\\}"
+  text="${text//\"/\\\"}"
+  text="${text//$'\n'/\\n}"
+  text="${text//$'\r'/\\r}"
+  text="${text//$'\t'/\\t}"
+  printf '%s' "$text"
+}
+
+hooks_dir="$(script_dir)"
+data_dir="${CLAUDE_PLUGIN_DATA:-$HOME/.claude/plugins/data/understand-first}"
+ledger_path="${data_dir}/concepts.md"
+
+rules="$(<"${hooks_dir}/core-rules.md")"
+
+if [ -r "$ledger_path" ]; then
+  ledger="$(<"$ledger_path")"
+else
+  ledger="(no ledger yet: create it at the first teach-back and ask the learner for their target language)"
+fi
+
+context="${rules}"$'\n\n'"Ledger path: ${ledger_path}"$'\n\n'"Ledger contents:"$'\n'"${ledger}"
+
+printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s"}}\n' "$(escape_for_json "$context")"
