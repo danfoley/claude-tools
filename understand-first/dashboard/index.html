@@ -1,0 +1,319 @@
+<style>
+  .uf { display: grid; gap: var(--cds-gap-lg); font-family: var(--font-anthropic-sans); max-width: 72rem; margin-inline: auto; }
+  .uf-title { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); margin: 0; }
+  .uf-takeaway { color: var(--color-fg-muted); margin: 0; }
+  .uf-filters { display: flex; flex-wrap: wrap; gap: var(--cds-gap-md); }
+  .uf-filters label { display: grid; gap: var(--cds-gap-xs); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+  .uf-filters select { min-width: 10rem; padding: var(--cds-pad-xs) var(--cds-pad-sm); background: var(--color-panel); color: var(--color-fg); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); font: inherit; }
+  .uf-cards { display: grid; gap: var(--cds-gap-md); grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr)); }
+  .uf-card { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); display: grid; gap: var(--cds-gap-xs); align-content: start; min-width: 0; }
+  .uf-card h2 { margin: 0; font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); }
+  .uf-note { margin: 0; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+  .uf-figure { font-family: var(--font-anthropic-serif); font-size: var(--cds-font-size-title); font-weight: 400; font-variant-numeric: tabular-nums; }
+  .uf-sections { display: grid; gap: var(--cds-gap-md); grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr)); }
+  .uf-scroll { overflow-x: auto; max-height: 24rem; overflow-y: auto; }
+  .uf table { width: 100%; border-collapse: collapse; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+  .uf th { text-align: left; font-weight: var(--cds-font-weight-medium); color: var(--color-fg-muted); position: sticky; top: 0; background: var(--color-panel); }
+  .uf th, .uf td { padding: var(--cds-pad-xs) var(--cds-pad-sm); border-bottom: 1px solid var(--color-border-line); vertical-align: top; }
+  .uf-pill { display: inline-block; padding: 0 var(--cds-pad-sm); border-radius: 999px; border: 1px solid currentColor; font-size: var(--cds-font-size-caption); }
+  .uf-pill[data-status="solid"] { color: var(--color-ok); }
+  .uf-pill[data-status="explained"] { color: var(--color-fg); }
+  .uf-pill[data-status="shaky"] { color: var(--color-warn); }
+  .uf-pill[data-status="new"] { color: var(--color-fg-muted); }
+  .uf-chart { position: relative; min-height: 11rem; }
+  .uf-chart svg { display: block; width: 100%; height: 11rem; }
+  .uf-tip { position: absolute; pointer-events: none; padding: var(--cds-pad-xs) var(--cds-pad-sm); background: var(--cds-surface-popover); border: 1px solid var(--cds-border); border-radius: var(--cds-radius); box-shadow: var(--cds-shadow-popover); font-size: var(--cds-font-size-caption); white-space: nowrap; }
+  .uf-empty { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); margin: 0; }
+</style>
+
+<div class="uf" id="uf-root">
+  <header>
+    <h1 class="uf-title" id="uf-title">Understand First</h1>
+    <p class="uf-takeaway" id="uf-takeaway"></p>
+  </header>
+
+  <div class="uf-filters" data-source="events concepts">
+    <label>Range <select id="uf-range"></select></label>
+    <label>Ticket <select id="uf-ticket"></select></label>
+    <label>Concept <select id="uf-concept"></select></label>
+  </div>
+
+  <section class="uf-cards" id="uf-cards" data-source="events concepts"></section>
+
+  <section class="uf-sections">
+    <div class="uf-card" id="uf-concepts-card">
+      <h2>Concepts</h2>
+      <p class="uf-note">Each concept is an abstract idea; its examples are the cases you have met it in.</p>
+      <div class="uf-scroll"><table id="uf-concepts" data-source="concepts" data-row-key="concept"><thead><tr><th data-field="concept">Concept</th><th data-field="status">Status</th><th data-field="exampleCount">Examples</th><th data-field="exampleLabels">Seen in</th><th data-field="lastVerified">Verified</th><th data-field="recallQuestion">Recall question</th></tr></thead><tbody></tbody></table></div>
+    </div>
+    <div class="uf-card" id="uf-activity-card">
+      <h2>Activity</h2>
+      <p class="uf-note" id="uf-activity-note">Events per day.</p>
+      <div class="uf-chart" id="uf-activity" data-source="events"></div>
+    </div>
+    <div class="uf-card" id="uf-tickets-card">
+      <h2>Time per ticket</h2>
+      <p class="uf-note">Minutes between a ticket's first and last event on a day.</p>
+      <div class="uf-scroll"><table id="uf-tickets"><thead><tr><th>Ticket</th><th>Day</th><th>Minutes</th><th>Events</th></tr></thead><tbody></tbody></table></div>
+    </div>
+    <div class="uf-card" id="uf-recent-card">
+      <h2>Recent events</h2>
+      <p class="uf-note">Newest first.</p>
+      <div class="uf-scroll"><table id="uf-recent" data-source="events" data-row-key="timestamp,event,concept"><thead><tr><th data-field="timestamp">When</th><th data-field="event">Event</th><th data-field="concept">Concept</th><th data-field="note">Note</th></tr></thead><tbody></tbody></table></div>
+    </div>
+  </section>
+</div>
+
+<script>
+  const RANGES = [
+    { value: '7', label: 'Last 7 days' },
+    { value: '30', label: 'Last 30 days' },
+    { value: '90', label: 'Last 90 days' },
+    { value: 'all', label: 'All time' },
+  ];
+  const MAX_RECENT = 25;
+  const MAX_DAYS = 90;
+  const DAY_MS = 86400000;
+
+  const el = (id) => document.getElementById(id);
+  const dayOf = (date) => d3.utcFormat('%Y-%m-%d')(date);
+  const rowsOf = (id) => {
+    const source = dash.data(id);
+    return source.status === 'ok' ? source.data : [];
+  };
+
+  const filtersFromParams = () => {
+    const params = dash.params();
+    return { range: params.range ?? '30', ticket: params.ticket ?? '', concept: params.concept ?? '' };
+  };
+
+  const rangeStart = (range) => {
+    if (range === 'all') return '';
+    return dayOf(new Date(Date.now() - Number(range) * DAY_MS));
+  };
+
+  const eventsInView = (events, filters) => {
+    const start = rangeStart(filters.range);
+    return events.filter((event) =>
+      event.day >= start &&
+      (!filters.ticket || String(event.ticket) === filters.ticket) &&
+      (!filters.concept || event.concept === filters.concept));
+  };
+
+  const conceptsInView = (concepts, filters) =>
+    concepts.filter((concept) => !filters.concept || concept.concept === filters.concept);
+
+  const countOf = (events, name) => events.filter((event) => event.event === name).length;
+
+  const recallHitRate = (events) => {
+    const recalls = events.filter((event) => event.event === 'recall');
+    if (recalls.length === 0) return '–';
+    const hits = recalls.filter((event) => event.result === 'hit').length;
+    return d3.format('.0%')(hits / recalls.length);
+  };
+
+  const statusCount = (concepts, status) => concepts.filter((concept) => concept.status === status).length;
+
+  const fillSelect = (select, options, current) => {
+    const signature = options.map((option) => option.value + '|' + option.label).join('\n');
+    if (select.dataset.signature !== signature) {
+      select.replaceChildren(...options.map((option) => new Option(option.label, option.value)));
+      select.dataset.signature = signature;
+    }
+    if (select !== document.activeElement) select.value = current;
+  };
+
+  const uniqueSorted = (values) => [...new Set(values.filter((value) => value !== '' && value !== undefined))].sort();
+
+  const renderFilters = (events, concepts, filters) => {
+    fillSelect(el('uf-range'), RANGES, filters.range);
+    const tickets = uniqueSorted(events.map((event) => String(event.ticket)));
+    fillSelect(el('uf-ticket'), [{ value: '', label: 'All tickets' }, ...tickets.map((ticket) => ({ value: ticket, label: ticket }))], filters.ticket);
+    const names = uniqueSorted(concepts.map((concept) => concept.concept));
+    fillSelect(el('uf-concept'), [{ value: '', label: 'All concepts' }, ...names.map((name) => ({ value: name, label: name }))], filters.concept);
+  };
+
+  const card = (label, figure, note) => {
+    const box = document.createElement('div');
+    box.className = 'uf-card';
+    const heading = document.createElement('h2');
+    heading.textContent = label;
+    const value = document.createElement('div');
+    value.className = 'uf-figure';
+    value.textContent = figure;
+    const detail = document.createElement('p');
+    detail.className = 'uf-note';
+    detail.textContent = note;
+    box.append(heading, value, detail);
+    return box;
+  };
+
+  const renderCards = (events, concepts) => {
+    const passed = countOf(events, 'test-passed');
+    const failed = countOf(events, 'test-failed');
+    el('uf-cards').replaceChildren(
+      card('Solid concepts', String(statusCount(concepts, 'solid')) + ' / ' + concepts.length, statusCount(concepts, 'explained') + ' explained, ' + statusCount(concepts, 'shaky') + ' shaky'),
+      card('Tests passed', passed + ' / ' + (passed + failed), failed + ' failed'),
+      card('Recall hit rate', recallHitRate(events), countOf(events, 'recall') + ' questions asked'),
+      card('Delegated', String(countOf(events, 'delegated')), 'parts handed to Claude'),
+      card('Gate retries', String(countOf(events, 'gate-retry')), events.length + ' events in view'),
+    );
+  };
+
+  const renderTakeaway = (events, concepts) => {
+    const solid = statusCount(concepts, 'solid');
+    const explained = statusCount(concepts, 'explained');
+    const text = concepts.length === 0
+      ? 'No concepts in the ledger yet.'
+      : solid + ' of ' + concepts.length + ' concepts solid, ' + explained + ' explained. ' + events.length + ' events in this view.';
+    el('uf-takeaway').textContent = text;
+  };
+
+  const pill = (status) => {
+    const span = document.createElement('span');
+    span.className = 'uf-pill';
+    span.dataset.status = status;
+    span.textContent = status;
+    return span;
+  };
+
+  const cellOf = (content) => {
+    const cell = document.createElement('td');
+    if (content instanceof Node) cell.append(content);
+    else cell.textContent = content;
+    return cell;
+  };
+
+  const rowOf = (cells, key) => {
+    const row = document.createElement('tr');
+    if (key !== undefined) row.dataset.key = key;
+    row.append(...cells.map(cellOf));
+    return row;
+  };
+
+  const showEmpty = (body, columns, message) => {
+    const row = document.createElement('tr');
+    const cell = document.createElement('td');
+    cell.colSpan = columns;
+    cell.className = 'uf-empty';
+    cell.textContent = message;
+    row.append(cell);
+    body.replaceChildren(row);
+  };
+
+  const renderConcepts = (concepts) => {
+    const body = el('uf-concepts').tBodies[0];
+    if (concepts.length === 0) return showEmpty(body, 6, 'No concepts match.');
+    body.replaceChildren(...concepts.map((concept) =>
+      rowOf([concept.concept, pill(concept.status), String(concept.exampleCount), concept.exampleLabels, concept.lastVerified, concept.recallQuestion], concept.concept)));
+  };
+
+  const renderRecent = (events) => {
+    const body = el('uf-recent').tBodies[0];
+    if (events.length === 0) return showEmpty(body, 4, 'No events in this view.');
+    const newest = [...events].sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, MAX_RECENT);
+    body.replaceChildren(...newest.map((event) =>
+      rowOf([event.timestamp.replace('T', ' '), event.event, event.concept, event.note],
+        [event.timestamp, event.event, event.concept].map(encodeURIComponent).join(','))));
+  };
+
+  const minutesOf = (time) => {
+    const [hours, minutes] = String(time || '0:0').split(':').map(Number);
+    return hours * 60 + minutes;
+  };
+
+  const ticketSpans = (events) => {
+    const groups = d3.group(events.filter((event) => event.ticket !== ''), (event) => event.ticket + '|' + event.day);
+    return [...groups].map(([key, group]) => {
+      const times = group.map((event) => minutesOf(event.time));
+      const [ticket, day] = key.split('|');
+      return { ticket, day, minutes: d3.max(times) - d3.min(times), count: group.length };
+    }).sort((a, b) => b.day.localeCompare(a.day));
+  };
+
+  const renderTickets = (events) => {
+    const body = el('uf-tickets').tBodies[0];
+    const spans = ticketSpans(events);
+    if (spans.length === 0) return showEmpty(body, 4, 'No ticket events in this view.');
+    body.replaceChildren(...spans.map((span) => rowOf([span.ticket, span.day, String(span.minutes), String(span.count)])));
+  };
+
+  const daysBetween = (first, last) => {
+    const days = [];
+    for (let time = Date.parse(first); time <= Date.parse(last) && days.length < MAX_DAYS; time += DAY_MS) days.push(dayOf(new Date(time)));
+    return days;
+  };
+
+  const activityDays = (events, filters) => {
+    const today = dayOf(new Date());
+    const first = filters.range === 'all' ? (d3.min(events, (event) => event.day) || today) : rangeStart(filters.range);
+    return daysBetween(first, today).slice(-MAX_DAYS);
+  };
+
+  const showTip = (tip, event, text) => {
+    tip.textContent = text;
+    tip.hidden = false;
+    const box = tip.parentNode.getBoundingClientRect();
+    tip.style.left = Math.min(event.clientX - box.left + 8, box.width - tip.offsetWidth - 4) + 'px';
+    tip.style.top = Math.max(event.clientY - box.top - 28, 0) + 'px';
+  };
+
+  const renderActivity = (events, filters) => {
+    const host = el('uf-activity');
+    host.replaceChildren();
+    if (events.length === 0) {
+      const message = document.createElement('p');
+      message.className = 'uf-empty';
+      message.textContent = 'No events in this view.';
+      host.append(message);
+      return;
+    }
+    const days = activityDays(events, filters);
+    const counts = d3.rollup(events, (group) => group.length, (event) => event.day);
+    const width = host.clientWidth || 320;
+    const height = 176;
+    const margin = { top: 8, right: 8, bottom: 22, left: 28 };
+    const x = d3.scaleBand(days, [margin.left, width - margin.right]).padding(0.25);
+    const y = d3.scaleLinear([0, d3.max(days, (day) => counts.get(day) || 0) || 1], [height - margin.bottom, margin.top]).nice();
+    const svg = d3.select(host).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${width} ${height}`);
+    const tip = d3.select(host).append('div').attr('class', 'uf-tip').attr('hidden', '').node();
+    svg.append('g').attr('transform', `translate(${margin.left},0)`)
+      .call(d3.axisLeft(y).ticks(4).tickFormat(d3.format('d')).tickSize(0))
+      .call((axis) => axis.select('.domain').remove())
+      .call((axis) => axis.selectAll('text').attr('font-size', null).attr('font-family', null).attr('fill', 'var(--color-fg-muted)'));
+    svg.append('g').selectAll('rect').data(days).join('rect')
+      .attr('x', (day) => x(day)).attr('width', x.bandwidth())
+      .attr('y', (day) => y(counts.get(day) || 0)).attr('height', (day) => y(0) - y(counts.get(day) || 0))
+      .attr('rx', 3).attr('fill', dash.colors[0])
+      .on('mousemove', (event, day) => showTip(tip, event, day + ': ' + (counts.get(day) || 0) + ' events'))
+      .on('mouseleave', () => { tip.hidden = true; });
+    const labelEvery = Math.ceil(days.length / 6);
+    svg.append('g').selectAll('text').data(days.filter((day, index) => index % labelEvery === 0)).join('text')
+      .attr('x', (day) => x(day) + x.bandwidth() / 2).attr('y', height - 6).attr('text-anchor', 'middle')
+      .attr('font-size', 11).attr('fill', 'var(--color-fg-muted)').text((day) => day.slice(5));
+  };
+
+  const renderAll = () => {
+    const filters = filtersFromParams();
+    const allEvents = rowsOf('events');
+    const allConcepts = rowsOf('concepts');
+    const events = eventsInView(allEvents, filters);
+    const concepts = conceptsInView(allConcepts, filters);
+    renderFilters(allEvents, allConcepts, filters);
+    renderTakeaway(events, concepts);
+    renderCards(events, concepts);
+    renderConcepts(concepts);
+    renderRecent(events);
+    renderTickets(events);
+    renderActivity(events, filters);
+  };
+
+  const bindFilter = (id, name) => {
+    el(id).addEventListener('change', (event) => dash.setParams({ [name]: event.target.value }));
+  };
+
+  bindFilter('uf-range', 'range');
+  bindFilter('uf-ticket', 'ticket');
+  bindFilter('uf-concept', 'concept');
+  dash.onData(renderAll);
+</script>
