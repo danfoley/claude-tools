@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="token" content="__TOKEN__">
+<title>Understand First</title>
+<style>
+  :root {
+    --bg: #f6f6f3;
+    --panel: #ffffff;
+    --fg: #1d2127;
+    --muted: #5b6470;
+    --line: #dcdfe3;
+    --accent: #2457c5;
+    --accent-fg: #ffffff;
+    --new: #5b6470;
+    --shaky: #9a5b00;
+    --explained: #1f5fa8;
+    --solid: #1a7a3f;
+    --danger: #b3261e;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14171b; --panel: #1c2026; --fg: #e8eaed; --muted: #9aa3ae; --line: #2d333b;
+      --accent: #7aa2f7; --accent-fg: #101319; --new: #9aa3ae; --shaky: #f0b24a;
+      --explained: #7cb8f2; --solid: #5fcf8a; --danger: #ff8a80; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14171b; --panel: #1c2026; --fg: #e8eaed; --muted: #9aa3ae; --line: #2d333b;
+    --accent: #7aa2f7; --accent-fg: #101319; --new: #9aa3ae; --shaky: #f0b24a;
+    --explained: #7cb8f2; --solid: #5fcf8a; --danger: #ff8a80; color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; align-items: center; gap: 24px; padding: 14px max(16px, env(safe-area-inset-left)); border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
+  h1 { font-size: 17px; margin: 0; letter-spacing: 0.01em; }
+  nav { display: flex; gap: 4px; }
+  nav a { color: var(--muted); text-decoration: none; padding: 6px 12px; border-radius: 6px; }
+  nav a[aria-current="page"] { color: var(--fg); background: var(--bg); font-weight: 600; }
+  .live { margin-left: auto; color: var(--muted); font-size: 13px; display: flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--solid); }
+  .dot.off { background: var(--danger); }
+  main { max-width: 880px; margin: 0 auto; padding: 20px max(16px, env(safe-area-inset-left)) 48px; display: grid; gap: 16px; }
+  section[hidden] { display: none; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 10px; min-width: 0; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0; }
+  .big { font-size: 26px; font-weight: 650; }
+  .muted { color: var(--muted); }
+  .steps { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+  .step { height: 8px; border-radius: 4px; background: var(--line); }
+  .step.done { background: var(--accent); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { border: 1px solid currentColor; border-radius: 999px; padding: 1px 10px; font-size: 13px; white-space: nowrap; background: transparent; color: var(--fg); cursor: pointer; }
+  .chip.new { color: var(--new); } .chip.shaky { color: var(--shaky); }
+  .chip.explained { color: var(--explained); } .chip.solid { color: var(--solid); }
+  .chip:hover { background: color-mix(in srgb, currentColor 10%, transparent); }
+  .chip.static { cursor: default; }
+  .chip.static:hover { background: transparent; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tab { border-radius: 999px; padding: 4px 14px; }
+  .tab.active { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); font-weight: 600; }
+  .steps.rungs { grid-template-columns: repeat(4, 1fr); }
+  .row .detail.none { font-style: italic; }
+  .chip.active { font-weight: 650; box-shadow: inset 0 0 0 1px currentColor; background: color-mix(in srgb, currentColor 16%, transparent); }
+  .row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+  .row:first-of-type { border-top: 0; }
+  .row .name { font-weight: 600; overflow-wrap: anywhere; }
+  .row .detail { grid-column: 1 / -1; color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
+  .event { display: grid; grid-template-columns: 8.5em minmax(0, 1fr); gap: 4px 12px; padding: 6px 0; border-top: 1px solid var(--line); font-size: 14px; }
+  .event:first-of-type { border-top: 0; }
+  .event .when { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .event .what { overflow-wrap: anywhere; }
+  .event .what b { font-weight: 600; }
+  button { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--fg); border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+  button.danger { color: var(--danger); border-color: var(--danger); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  input, select { font: inherit; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; min-width: 0; }
+  #toast { position: fixed; bottom: max(16px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 8px; max-width: calc(100vw - 32px); }
+  #toast[hidden] { display: none; }
+  @media (max-width: 520px) { .event { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Understand first</h1>
+  <nav>
+    <a href="#stats" id="nav-stats">Stats</a>
+    <a href="#languages" id="nav-languages">Languages</a>
+    <a href="#settings" id="nav-settings">Settings</a>
+  </nav>
+  <div class="live"><span class="dot" id="dot"></span><span id="live-text">connecting</span></div>
+</header>
+<main>
+  <section id="stats" aria-label="Stats" hidden></section>
+  <section id="languages" aria-label="Languages" hidden></section>
+  <section id="settings" aria-label="Settings" hidden></section>
+</main>
+<div id="toast" role="status" hidden></div>
+<script>
+(function () {
+  var TOKEN = document.querySelector('meta[name="token"]').content;
+  var POLL_MS = 2000;
+  var RUNGS = 4;
+  var FILTER_KEY = 'understand-first-status-filter';
+  var LANGUAGE_KEY = 'understand-first-language';
+  var SCREENS = ['stats', 'languages', 'settings'];
+  var RUNG_NAMES = ['one line', 'one test assertion', 'one whole test', 'one whole function'];
+  var state = null;
+  var shownStats = '';
+  var shownLanguages = '';
+  var shownSettings = '';
+  var statusFilter = savedStatusFilter();
+  var selectedLanguage = savedLanguage();
+
+  function savedLanguage() {
+    try { return localStorage.getItem(LANGUAGE_KEY) || ''; } catch (error) { return ''; }
+  }
+
+  function setSelectedLanguage(name) {
+    selectedLanguage = name;
+    try { localStorage.setItem(LANGUAGE_KEY, name); } catch (error) { selectedLanguage = name; }
+    render(true);
+  }
+
+  function activeLanguage() {
+    var names = state.dial.map(function (entry) { return entry.language; });
+    if (names.indexOf(selectedLanguage) !== -1) return selectedLanguage;
+    return names.indexOf(state.language) !== -1 ? state.language : (names[0] || '');
+  }
+
+  function savedStatusFilter() {
+    try { return localStorage.getItem(FILTER_KEY) || ''; } catch (error) { return ''; }
+  }
+
+  function setStatusFilter(status) {
+    statusFilter = status;
+    try { localStorage.setItem(FILTER_KEY, status); } catch (error) { statusFilter = status; }
+    render(true);
+  }
+
+  function el(tag, attributes) {
+    var node = document.createElement(tag);
+    Object.keys(attributes || {}).forEach(function (key) {
+      var value = attributes[key];
+      if (value === null || value === undefined) return;
+      if (key === 'text') node.textContent = value;
+      else if (key === 'class') node.className = value;
+      else if (key.indexOf('on') === 0) node.addEventListener(key.slice(2), value);
+      else node.setAttribute(key, value);
+    });
+    appendChildren(node, Array.prototype.slice.call(arguments, 2));
+    return node;
+  }
+
+  function appendChildren(node, children) {
+    children.forEach(function (child) {
+      if (child === null || child === undefined || child === false) return;
+      if (Array.isArray(child)) appendChildren(node, child);
+      else node.appendChild(typeof child === 'string' ? document.createTextNode(child) : child);
+    });
+  }
+
+  function replaceChildren(parent, children) {
+    while (parent.firstChild) parent.removeChild(parent.firstChild);
+    children.forEach(function (child) { parent.appendChild(child); });
+  }
+
+  function currentScreen() {
+    var name = location.hash.slice(1);
+    return SCREENS.indexOf(name) === -1 ? 'stats' : name;
+  }
+
+  function showScreen() {
+    var screen = currentScreen();
+    SCREENS.forEach(function (name) { document.getElementById(name).hidden = name !== screen; });
+    SCREENS.forEach(function (name) {
+      var link = document.getElementById('nav-' + name);
+      if (name === screen) link.setAttribute('aria-current', 'page');
+      else link.removeAttribute('aria-current');
+    });
+  }
+
+  function showToast(message) {
+    var toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.hidden = false;
+    clearTimeout(showToast.timer);
+    showToast.timer = setTimeout(function () { toast.hidden = true; }, 4000);
+  }
+
+  function setConnection(isLive) {
+    document.getElementById('dot').className = isLive ? 'dot' : 'dot off';
+    document.getElementById('live-text').textContent = isLive ? 'live' : 'offline';
+  }
+
+  function post(body) {
+    return fetch('/api/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Token': TOKEN },
+      body: JSON.stringify(body)
+    }).then(function (response) { return response.json(); }).then(function (result) {
+      showToast(result.message);
+      if (result.state) { state = result.state; render(true); }
+    }).catch(function () { showToast('Could not reach the viewer.'); });
+  }
+
+  function filterChip(status, label) {
+    var isActive = statusFilter === status;
+    return el('button', {
+      type: 'button',
+      'class': 'chip ' + status + (isActive ? ' active' : ''),
+      'aria-pressed': isActive ? 'true' : 'false',
+      title: isActive ? 'Show all concepts' : 'Show only ' + status + ' concepts',
+      onclick: function () { setStatusFilter(isActive ? '' : status); },
+      text: label
+    });
+  }
+
+  function statusChip(status) {
+    var name = status || 'new';
+    return filterChip(name, name);
+  }
+
+  function showAllChip() {
+    return el('button', { type: 'button', 'class': 'chip', onclick: function () { setStatusFilter(''); }, text: 'Show all' });
+  }
+
+  function hasStatus(concept) {
+    return !statusFilter || (concept.status || 'new') === statusFilter;
+  }
+
+  function countByStatus(concepts) {
+    var counts = { new: 0, shaky: 0, explained: 0, solid: 0 };
+    concepts.forEach(function (concept) { counts[concept.status || 'new'] = (counts[concept.status || 'new'] || 0) + 1; });
+    return counts;
+  }
+
+  function stageCard() {
+    var steps = [];
+    for (var i = 1; i <= state.stageCount; i++) steps.push(el('div', { 'class': i <= state.stage ? 'step done' : 'step' }));
+    return el('div', { 'class': 'card' },
+      el('h2', { text: 'Stage' }),
+      el('div', { 'class': 'big', text: 'Stage ' + state.stage + ' of ' + state.stageCount }),
+      el('div', { 'class': 'steps' }, steps),
+      el('div', { 'class': 'muted', text: 'since ' + (state.stageSince || 'unknown') + ' · stats ' + state.statsMode })
+    );
+  }
+
+  function conceptsCard() {
+    var counts = countByStatus(state.concepts);
+    var chips = Object.keys(counts).map(function (status) { return filterChip(status, counts[status] + ' ' + status); });
+    if (statusFilter) chips.push(showAllChip());
+    var visible = state.concepts.filter(hasStatus);
+    var rows = visible.map(function (concept) {
+      var detail = concept.words || 'No explanation of your own yet.';
+      var meta = [concept.verified ? 'verified ' + concept.verified : '', concept.examples + ' example' + (concept.examples === 1 ? '' : 's')].filter(Boolean).join(' · ');
+      return el('div', { 'class': 'row', role: 'listitem' },
+        el('div', { 'class': 'name', text: concept.name }),
+        statusChip(concept.status),
+        el('div', { 'class': 'detail', text: detail + (meta ? ' (' + meta + ')' : '') })
+      );
+    });
+    var heading = statusFilter ? visible.length + ' ' + statusFilter + ' of ' + state.concepts.length : String(state.concepts.length);
+    var emptyText = statusFilter ? 'No ' + statusFilter + ' concepts.' : 'None yet.';
+    return el('div', { 'class': 'card' },
+      el('h2', { text: 'Concepts (' + heading + ')' }),
+      el('div', { 'class': 'chips' }, chips),
+      rows.length ? el('div', { role: 'list', 'aria-label': 'Concepts' }, rows) : el('div', { 'class': 'muted', text: emptyText })
+    );
+  }
+
+  function eventDetail(event) {
+    return event.concept || event.note || '';
+  }
+
+  function eventsCard() {
+    var coreEvents = state.events.filter(function (event) { return !event.language; });
+    var rows = coreEvents.slice(0, 20).map(function (event) {
+      var detail = eventDetail(event);
+      return el('div', { 'class': 'event', role: 'listitem' },
+        el('div', { 'class': 'when', text: (event.date || '').slice(5) + ' ' + (event.time || '') }),
+        el('div', { 'class': 'what' }, el('b', { text: event.event || '' }), detail ? ' · ' + detail : '')
+      );
+    });
+    return el('div', { 'class': 'card' },
+      el('h2', { text: 'Recent activity (' + coreEvents.length + ')' }),
+      rows.length ? el('div', { role: 'list', 'aria-label': 'Recent activity' }, rows) : el('div', { 'class': 'muted', text: 'No events yet.' }),
+      coreEvents.length < state.events.length ? el('div', { 'class': 'muted', text: 'Events about a language are on the Languages screen.' }) : null
+    );
+  }
+
+  function renderStats() {
+    var key = JSON.stringify([state, statusFilter]);
+    if (key === shownStats) return;
+    shownStats = key;
+    var root = document.getElementById('stats');
+    if (!state.hasLedger) {
+      replaceChildren(root, [el('div', { 'class': 'card' }, el('div', { text: 'No ledger yet. The first understand-first session creates it.' }))]);
+      return;
+    }
+    replaceChildren(root, [stageCard(), conceptsCard(), eventsCard()]);
+  }
+
+  function languageSwitcher(active) {
+    var buttons = state.dial.map(function (entry) {
+      var isActive = entry.language === active;
+      return el('button', {
+        type: 'button',
+        'class': isActive ? 'tab active' : 'tab',
+        'aria-pressed': isActive ? 'true' : 'false',
+        onclick: function () { setSelectedLanguage(entry.language); },
+        text: entry.language + (entry.language === state.language ? ' (primary)' : '')
+      });
+    });
+    return el('div', { 'class': 'card' },
+      el('h2', { text: 'Language' }),
+      el('div', { 'class': 'tabs', role: 'group', 'aria-label': 'Language' }, buttons),
+      el('div', { 'class': 'muted', text: 'Switching language changes only this screen. Your stage and concepts stay the same.' })
+    );
+  }
+
+  function dialCard(entry) {
+    var steps = [];
+    for (var rung = 1; rung <= RUNG_NAMES.length; rung++) steps.push(el('div', { 'class': rung <= entry.rung ? 'step done' : 'step' }));
+    return el('div', { 'class': 'card' },
+      el('h2', { text: entry.language + ' code dial' }),
+      el('div', { 'class': 'big', text: 'Rung ' + entry.rung + ' of ' + RUNG_NAMES.length }),
+      el('div', { 'class': 'steps rungs' }, steps),
+      el('div', { 'class': 'muted', text: 'You write ' + RUNG_NAMES[entry.rung - 1] + ' at a time in ' + entry.language + '. Clean streak: ' + entry.streak + '.' })
+    );
+  }
+
+  function appliedCard(language) {
+    var applied = state.concepts.filter(function (concept) { return concept.applied[language]; }).length;
+    var rows = state.concepts.map(function (concept) {
+      var note = concept.applied[language];
+      return el('div', { 'class': 'row', role: 'listitem' },
+        el('div', { 'class': 'name', text: concept.name }),
+        el('span', { 'class': 'chip static ' + (concept.status || 'new'), text: concept.status || 'new' }),
+        el('div', { 'class': note ? 'detail' : 'detail none', text: note || 'Not applied in ' + language + ' yet.' })
+      );
+    });
+    return el('div', { 'class': 'card' },
+      el('h2', { text: 'Concepts in ' + language + ' (' + applied + ' of ' + state.concepts.length + ' applied)' }),
+      rows.length ? el('div', { role: 'list', 'aria-label': 'Concepts in ' + language }, rows) : el('div', { 'class': 'muted', text: 'No concepts yet.' })
+    );
+  }
+
+  function languageEventsCard(language) {
+    var rows = state.events.filter(function (event) { return event.language === language; }).slice(0, 10).map(function (event) {
+      return el('div', { 'class': 'event', role: 'listitem' },
+        el('div', { 'class': 'when', text: (event.date || '').slice(5) + ' ' + (event.time || '') }),
+        el('div', { 'class': 'what' }, el('b', { text: event.event || '' }), event.note ? ' · ' + event.note : '')
+      );
+    });
+    return el('div', { 'class': 'card' },
+      el('h2', { text: 'Recent in ' + language }),
+      rows.length ? el('div', { role: 'list', 'aria-label': 'Recent in ' + language }, rows) : el('div', { 'class': 'muted', text: 'Nothing logged for ' + language + ' yet.' })
+    );
+  }
+
+  function renderLanguages() {
+    var root = document.getElementById('languages');
+    var active = state.hasLedger ? activeLanguage() : '';
+    var entry = state.dial.filter(function (candidate) { return candidate.language === active; })[0];
+    var key = JSON.stringify([state.hasLedger, active, state.language, state.dial, state.concepts, state.events.filter(function (event) { return event.language === active; })]);
+    if (key === shownLanguages) return;
+    shownLanguages = key;
+    if (!state.hasLedger || !entry) {
+      replaceChildren(root, [el('div', { 'class': 'card' }, el('div', { text: state.hasLedger ? 'No languages yet. Add one in Settings.' : 'No ledger yet. The first understand-first session creates it.' }))]);
+      return;
+    }
+    replaceChildren(root, [languageSwitcher(active), dialCard(entry), appliedCard(active), languageEventsCard(active)]);
+  }
+
+  function stageSettings() {
+    var lower = [];
+    for (var stage = 1; stage < state.stage; stage++) lower.push(el('option', { value: String(stage), text: 'Stage ' + stage }));
+    var picker = el('select', { id: 'stage-picker', 'aria-label': 'Choose a lower stage' }, lower);
+    return el('div', { 'class': 'card' },
+      el('h2', { text: 'Stage' }),
+      el('div', { text: 'Stage ' + state.stage + ' of ' + state.stageCount + ', since ' + (state.stageSince || 'unknown') + '. Moving up happens on its own.' }),
+      state.stage > 1
+        ? el('div', { 'class': 'controls' },
+            el('button', { onclick: function () { post({ action: 'stage-down' }); } }, 'Go back one stage'),
+            picker,
+            el('button', { onclick: function () { post({ action: 'stage-down', to: Number(picker.value) }); } }, 'Go to that stage'))
+        : el('div', { 'class': 'muted', text: 'You are at stage 1.' })
+    );
+  }
+
+  function languageSettings() {
+    var rows = state.dial.map(function (entry) {
+      return el('div', { 'class': 'row' },
+        el('div', { 'class': 'name', text: entry.language + (entry.language === state.language ? ' (primary)' : '') }),
+        el('div', { 'class': 'controls' },
+          el('span', { 'class': 'muted', text: 'rung ' + entry.rung + ' of ' + RUNGS }),
+          el('button', { disabled: entry.rung <= 1 ? 'disabled' : null, onclick: function () { post({ action: 'dial-down', language: entry.language }); } }, 'Lower a rung'),
+          entry.language === state.language ? null : el('button', { onclick: function () { post({ action: 'set-language', language: entry.language }); } }, 'Make primary'))
+      );
+    });
+    var input = el('input', { id: 'new-language', type: 'text', placeholder: 'Add a language', maxlength: '40', 'aria-label': 'Language to add' });
+    return el('div', { 'class': 'card' },
+      el('h2', { text: 'Language and code dial' }),
+      rows.length ? el('div', null, rows) : el('div', { 'class': 'muted', text: 'No languages yet.' }),
+      el('div', { 'class': 'controls' }, input,
+        el('button', { onclick: function () { post({ action: 'add-language', language: input.value }).then(function () { input.value = ''; }); } }, 'Add at rung 1'))
+    );
+  }
+
+  function modeSettings() {
+    return el('div', { 'class': 'card' },
+      el('h2', { text: 'Stats mode' }),
+      el('div', { text: 'Stats mode is ' + state.statsMode + '.' }),
+      state.statsMode === 'dashboard'
+        ? el('div', { 'class': 'controls' }, el('button', { onclick: function () { post({ action: 'stats-mode-terminal' }); } }, 'Turn hosted dashboard publishing off'))
+        : el('div', { 'class': 'muted', text: 'This page shows your stats locally. Publishing to a hosted page is opt-in: run /understand-first:menu mode dashboard in Claude Code.' })
+    );
+  }
+
+  function resetControls(container) {
+    replaceChildren(container, [el('button', { 'class': 'danger', onclick: function () { askToConfirmReset(container); } }, 'Reset to stage 1')]);
+  }
+
+  function askToConfirmReset(container) {
+    replaceChildren(container, [
+      el('span', { text: 'Reset to stage 1? Your concepts and code dial stay.' }),
+      el('button', { 'class': 'danger', onclick: function () { post({ action: 'reset-stage', confirm: true }); } }, 'Yes, reset'),
+      el('button', { onclick: function () { resetControls(container); } }, 'Cancel')
+    ]);
+  }
+
+  function skipAndResetSettings() {
+    var resetBox = el('div', { 'class': 'controls' });
+    resetControls(resetBox);
+    return el('div', { 'class': 'card' },
+      el('h2', { text: 'Skip or reset' }),
+      el('div', { 'class': 'controls' }, el('button', { onclick: function () { post({ action: 'skip-gates' }); } }, 'Skip the gates for the next task')),
+      resetBox
+    );
+  }
+
+  function renderSettings() {
+    var key = JSON.stringify([state.hasLedger, state.stage, state.stageSince, state.language, state.statsMode, state.dial]);
+    if (key === shownSettings) return;
+    shownSettings = key;
+    var root = document.getElementById('settings');
+    if (!state.hasLedger) {
+      replaceChildren(root, [el('div', { 'class': 'card' }, el('div', { text: 'No ledger yet. The first understand-first session creates it.' }))]);
+      return;
+    }
+    replaceChildren(root, [stageSettings(), languageSettings(), modeSettings(), skipAndResetSettings()]);
+  }
+
+  function render(isForced) {
+    if (!state) return;
+    if (isForced) { shownStats = ''; shownLanguages = ''; shownSettings = ''; }
+    renderStats();
+    renderLanguages();
+    renderSettings();
+  }
+
+  function refresh() {
+    if (document.hidden) return;
+    fetch('/api/state', { cache: 'no-store' }).then(function (response) { return response.json(); }).then(function (next) {
+      state = next;
+      setConnection(true);
+      render(false);
+    }).catch(function () { setConnection(false); });
+  }
+
+  window.addEventListener('hashchange', showScreen);
+  document.addEventListener('visibilitychange', refresh);
+  showScreen();
+  refresh();
+  setInterval(refresh, POLL_MS);
+})();
+</script>
+</body>
+</html>

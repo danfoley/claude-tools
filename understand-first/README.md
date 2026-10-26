@@ -49,15 +49,23 @@ Claude asks for your primary language once and creates your ledger at stage 1.
 ### Your data
 Everything lives in `~/.claude/understand-first/` (override with `UNDERSTAND_FIRST_DATA`): `ledger.md` (stage, code dial and concepts), `events.jsonl` (every gate, recall, test, delegation, stage move and phase time) and `dashboard-url.txt`. It is personal and never part of this repository.
 
-### Menu and settings
-Type `/understand-first:menu` to open the menu: Stats or Settings. Settings shows your current values and lets you change them: go back a stage (moving up happens on its own), switch stats mode, change your primary language, add a language or lower a code dial rung, skip the gates for one task, or reset to stage 1.
-
 ### Stats
-Stats open in the terminal by default, with a menu for view, range and filter. Nothing leaves your machine.
+Type `/understand-first:menu` to see your stats as a short text scoreboard: stage, concepts by status, recent activity and the code dial. Nothing leaves your machine, and there are no popups.
 
-Dashboard mode is opt-in. `/understand-first:menu mode dashboard` asks you once, then publishes your ledger and event log to a private claude.ai page with interactive filters, and refreshes it automatically at the end of each piece of work. `/understand-first:menu mode terminal` turns that off. The mode is stored as `stats-mode` in your ledger header.
+### Settings
+Settings are a separate screen: `/understand-first:menu settings` shows your current values and the commands that change them.
+- `stage <n>` goes back to a lower stage. Moving up happens on its own.
+- `language <name>`, `add <language>` and `dial <language>` set the primary language, add a language to the code dial, and lower a rung.
+- `skip` skips the gates for the next task, and `reset` goes back to stage 1 after a confirmation.
 
-For a one-off publish without changing the mode, use `/understand-first:menu dashboard`. `/understand-first:menu page` is the same and also refreshes the dashboard's page from `dashboard/index.html` after the plugin changes. `/understand-first:menu terminal` forces the terminal view while dashboard mode is on.
+### Live viewer
+The viewer is a small local page, served only on your machine at `http://127.0.0.1:37750`, with three screens. Stats is language-neutral: your stage, concepts and activity. Languages has a switcher; for the selected language it shows that language's code dial, every concept with how you applied it there (or "not applied yet"), and its own events. Switching language never changes the concept list. Settings has the buttons. It updates by itself every couple of seconds, so you can keep it open in a tab. Click a status chip on Stats to show only the concepts with that status.
+- Turn it on with `/understand-first:menu viewer on`. It is off by default. While it is on, every session start keeps it running, and it stays up after the session ends. After a reboot it starts again at your next session.
+- `viewer open`, `viewer stop`, `viewer off` and `viewer status` control it. Set `UNDERSTAND_FIRST_PORT` to use another port.
+- It needs `python3` and nothing else, and it reads and writes only your ledger and event log. It listens on `127.0.0.1` only, checks the Host header, and every change needs a token that only the page it served can read.
+
+### Hosted dashboard (opt-in)
+`/understand-first:menu mode dashboard` asks you once, then publishes your ledger and event log to a private claude.ai page and refreshes it at the end of each piece of work. `mode terminal` turns it off. `dashboard` publishes once without changing the mode, and `page` also refreshes the dashboard's page from `dashboard/index.html` after the plugin changes.
 
 ### Customizing
 - Rules injected every session: `hooks/core-rules.md`.

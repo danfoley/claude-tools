@@ -93,7 +93,7 @@ Do not skip ahead. A gate is active only from the stage that introduces it (see 
    - From stage 4, Claude plays a skeptical architect and asks five questions: why not simpler, what fails, what is untested, what was rejected, what are the known limits.
    - From stage 5, the learner gives a pseudocode outline of the whole change in their own words, as the check that they could rebuild it. They never write the whole change from scratch.
    - The learner's own words from the explanation become the PR description's Problem and What-changes sections. Claude adds Testing and known limitations.
-7. **Retention.** Update the ledger: for each abstract concept the work touched, its status, date, the learner's own one-line explanation of the idea, a recall question, and the new example from this work. Make sure the event log has every event from the session. If the ledger header has `stats-mode: dashboard`, refresh the dashboard by following the Publish section of the `/understand-first:menu` command (`commands/menu.md`, in the plugin folder that holds `sources.md`), without asking, and say in one line that it was updated. If publishing fails, say so and carry on; never block the work.
+7. **Retention.** Update the ledger: for each abstract concept the work touched, its status, date, the learner's own one-line explanation of the idea, a recall question, and the new example from this work. When the work applied a concept in a language, add or replace that concept's one `- applied in <Language>: <how it looks in that language, in one line>` line. Make sure the event log has every event from the session. If the ledger header has `stats-mode: dashboard`, refresh the dashboard by following the Publish section of the `/understand-first:menu` command (`commands/menu.md`, in the plugin folder that holds `sources.md`), without asking, and say in one line that it was updated. If publishing fails, say so and carry on; never block the work.
 
 ## Light gates (mechanical chores)
 
@@ -105,7 +105,7 @@ Stored at the path in the session-start context, never in a repository.
 
 A concept is abstract: a reusable idea that is not tied to one ticket, system or language ("idempotency", "lease with expiry", "failure isolation"). A thing from one piece of work ("the retry-count column", "a try/catch around each item") is an example of a concept, never a concept. Each concept holds as many examples as the learner meets; more examples are good and never need merging. Before adding a concept, check whether it is an example of one already in the ledger, and when a new example reveals a more general idea, rename the concept to the general idea and move what was there under it as examples.
 
-Status belongs to the concept. Examples are evidence: each has the ticket or place it appeared, the learner's own words about it, and how it went. A tested promotion should use an example the learner has not seen before, because that is what shows the idea transferred.
+Status belongs to the concept and never depends on a language: the concept list is the same whichever language is selected. What is language-specific is how a concept was applied, kept on `- applied in <Language>: <one line>` lines on the concept, one per language. The viewer's Languages screen shows these lines for the selected language, and "not applied yet" where there is none. Examples are evidence: each has the ticket or place it appeared, the learner's own words about it, and how it went. A tested promotion should use an example the learner has not seen before, because that is what shows the idea transferred.
 
 Format:
 
@@ -114,6 +114,7 @@ stage: 1
 stage-since: 2026-01-05
 primary-language: PHP
 stats-mode: terminal
+viewer: off
 
 ## Code dial
 - PHP: rung 1, clean streak 0
@@ -125,6 +126,8 @@ stats-mode: terminal
 - last verified: 2026-10-24
 - in the learner's words: running the same operation twice must have the same effect as once
 - recall question: what stops a retried job from sending the same message again?
+- applied in PHP: a dispatched-at column per recipient, skipped on a retry
+- applied in TypeScript: an idempotency key header the server remembers
 - examples:
   - email digest (PR 101): sending first and recording last meant a retry resent everything
   - webhook handler (PR 117): a redelivered event is skipped because its id was already stored
@@ -140,7 +143,7 @@ Keep entries short. Merge concepts that overlap. Never mark a concept solid on t
 
 ## Event log and stats
 
-Alongside the ledger, Claude appends one JSON line per event to `events.jsonl` in the same directory, never in a repository, in the same turn the event happens. Fields: `date`, `time`, `ticket`, `event`, `concept` (the abstract concept), `example` (the specific case from the work, when there is one), `level`, `result`, `reason`, `note`. Events: `gate-passed`, `gate-retry`, `recall` (hit or miss), `promotion-proposed`, `promotion-declined`, `test-passed`, `test-failed`, `delegated` (with scope and the learner's reason), `phase-start` and `phase-end` (from the timestamps in the session, so time per phase can be worked out), `teach-back`, `demotion`, `stage-up`, `stage-down` (with the reason), `dial-up` and `dial-down` (with the `language` and the new rung), `setting-changed` (with a note) and `gates-skipped`.
+Alongside the ledger, Claude appends one JSON line per event to `events.jsonl` in the same directory, never in a repository, in the same turn the event happens. Fields: `date`, `time`, `ticket`, `event`, `concept` (the abstract concept), `example` (the specific case from the work, when there is one), `level`, `result`, `reason`, `note`. Events: `gate-passed`, `gate-retry`, `recall` (hit or miss), `promotion-proposed`, `promotion-declined`, `test-passed`, `test-failed`, `delegated` (with scope and the learner's reason), `phase-start` and `phase-end` (from the timestamps in the session, so time per phase can be worked out), `teach-back`, `demotion`, `stage-up`, `stage-down` (with the reason), `dial-up` and `dial-down` (with the new rung in `note`), `setting-changed` (with a note) and `gates-skipped`. Only an event about a language's code dial or a language setting carries the extra field `language`; every other event leaves it out, so the viewer's core Stats screen stays language-neutral and the language events appear on its Languages screen.
 
 When the learner asks for stats, Claude reads the log and the ledger and reports from the data, not from memory: concepts by status and level, tests passed and failed with the concepts missed, recall hit rate and the concepts that keep being missed, how much work was delegated against done by the learner and the reasons given, time per phase and per ticket, concepts overdue for a recall question, and what changed since the last time stats were asked for. Claude says plainly when there is too little data for a number to mean anything. Stats are advisory; they never block work or promote anyone.
 
@@ -150,7 +153,7 @@ From stage 6, at the end of each task, ask what felt slow, what felt skippable, 
 
 ## Skipping
 
-If the learner says "skip the gates" for a task, or chooses it in the `/understand-first:menu` settings menu, comply, then run a short debrief afterward: what changed, why, and how they would redo it. The same phrases still work in plain speech: "go back a stage" and "go to stage N" change the stage at once.
+If the learner says "skip the gates" for a task, or runs `/understand-first:menu skip`, comply, then run a short debrief afterward: what changed, why, and how they would redo it. The same phrases still work in plain speech: "go back a stage" and "go to stage N" change the stage at once.
 
 ## Precedence
 
