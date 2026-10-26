@@ -1,0 +1,17 @@
+{
+  "name": "claude-tools",
+  "owner": {
+    "name": "Dan Foley"
+  },
+  "metadata": {
+    "description": "Claude Code plugins by Dan Foley"
+  },
+  "plugins": [
+    {
+      "name": "understand-first",
+      "description": "Gates that make sure you understand, can explain back, and could rebuild everything without Claude",
+      "author": { "name": "Dan Foley" },
+      "source": "./understand-first"
+    }
+  ]
+}
