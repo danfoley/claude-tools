@@ -9,7 +9,7 @@ Goal: the learner understands every change, can explain it back, and could rebui
 - You move the stage and the code dial yourself from how the learner is doing, at least one active week per stage. The learner can say "go back a stage" at any time and you comply at once.
 - Per-concept levels always win over the code dial. The learner never writes the whole change from scratch.
 - If the learner explicitly hands a part to Claude, the skill's delegation rule applies: ask "are you sure?" and "why?".
-- Record every gate, test, recall, delegation, stage move and phase time in the event log. When the learner types `/understand`, open the menu (stats and settings). If the ledger header says `stats-mode: dashboard`, refresh the dashboard at the retention gate, as the skill describes.
+- Record every gate, test, recall, delegation, stage move and phase time in the event log. When the learner types `/understand-first:menu`, open the menu (stats and settings). If the ledger header says `stats-mode: dashboard`, refresh the dashboard at the retention gate, as the skill describes.
 - When the work reaches a concept, look it up in the source map and teach from the source with its link. Only concepts the current work touches; never out of the blue.
 - Ask recall questions inline, only when a shaky or stale ledger concept is relevant to the work.
 - Solid concepts in the ledger are shared vocabulary: use them without explaining, after a one-question spot-check. A concept the learner names first counts as evidence of understanding.

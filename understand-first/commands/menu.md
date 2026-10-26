@@ -54,6 +54,6 @@ Used by `dashboard`, `page`, dashboard mode, and the automatic refresh at the en
 6. With the argument `page`, also rewrite `files/index.html` from `${CLAUDE_PLUGIN_ROOT}/dashboard/index.html`, pinning the version you read.
 7. Open the dashboard with the Artifact tool, `action: "open"`, only when the learner asked for it with a command. In the automatic refresh, do not open it.
 
-For a command, tell the learner in two lines: the link, that it is private to them, and that it is a snapshot of their ledger and event log taken now. Name what left their machine: the concept ledger and the event log, nothing else. Remind them that `/understand terminal` keeps everything local. For the automatic refresh, say in one line that the dashboard was updated.
+For a command, tell the learner in two lines: the link, that it is private to them, and that it is a snapshot of their ledger and event log taken now. Name what left their machine: the concept ledger and the event log, nothing else. Remind them that `/understand-first:menu terminal` keeps everything local. For the automatic refresh, say in one line that the dashboard was updated.
 
 If the Artifact tool is not available or a step fails, fall back to the terminal view for a command, or say so in one line and carry on for the automatic refresh. Never block the work.

@@ -24,7 +24,7 @@ The process starts small and grows. The ledger header holds `stage` (1 to 6) and
 5. **Stage 5.** The learner gives a pseudocode outline of the whole change in their own words.
 6. **Stage 6.** The retro at the end of each task. This is the full process.
 
-Always on from stage 1: the event log, ledger upkeep, `/understand` stats, inline recall questions, per-concept levels and their tests, the delegation rule, and "skip the gates".
+Always on from stage 1: the event log, ledger upkeep, `/understand-first:menu` stats, inline recall questions, per-concept levels and their tests, the delegation rule, and "skip the gates".
 
 ### Pace
 
@@ -93,7 +93,7 @@ Do not skip ahead. A gate is active only from the stage that introduces it (see 
    - From stage 4, Claude plays a skeptical architect and asks five questions: why not simpler, what fails, what is untested, what was rejected, what are the known limits.
    - From stage 5, the learner gives a pseudocode outline of the whole change in their own words, as the check that they could rebuild it. They never write the whole change from scratch.
    - The learner's own words from the explanation become the PR description's Problem and What-changes sections. Claude adds Testing and known limitations.
-7. **Retention.** Update the ledger: for each abstract concept the work touched, its status, date, the learner's own one-line explanation of the idea, a recall question, and the new example from this work. Make sure the event log has every event from the session. If the ledger header has `stats-mode: dashboard`, refresh the dashboard by following the Publish section of the `/understand` command (`commands/understand.md`, in the plugin folder that holds `sources.md`), without asking, and say in one line that it was updated. If publishing fails, say so and carry on; never block the work.
+7. **Retention.** Update the ledger: for each abstract concept the work touched, its status, date, the learner's own one-line explanation of the idea, a recall question, and the new example from this work. Make sure the event log has every event from the session. If the ledger header has `stats-mode: dashboard`, refresh the dashboard by following the Publish section of the `/understand-first:menu` command (`commands/menu.md`, in the plugin folder that holds `sources.md`), without asking, and say in one line that it was updated. If publishing fails, say so and carry on; never block the work.
 
 ## Light gates (mechanical chores)
 
@@ -150,7 +150,7 @@ From stage 6, at the end of each task, ask what felt slow, what felt skippable, 
 
 ## Skipping
 
-If the learner says "skip the gates" for a task, or chooses it in the `/understand` settings menu, comply, then run a short debrief afterward: what changed, why, and how they would redo it. The same phrases still work in plain speech: "go back a stage" and "go to stage N" change the stage at once.
+If the learner says "skip the gates" for a task, or chooses it in the `/understand-first:menu` settings menu, comply, then run a short debrief afterward: what changed, why, and how they would redo it. The same phrases still work in plain speech: "go back a stage" and "go to stage N" change the stage at once.
 
 ## Precedence
 

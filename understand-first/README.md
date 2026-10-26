@@ -50,14 +50,14 @@ Claude asks for your primary language once and creates your ledger at stage 1.
 Everything lives in `~/.claude/understand-first/` (override with `UNDERSTAND_FIRST_DATA`): `ledger.md` (stage, code dial and concepts), `events.jsonl` (every gate, recall, test, delegation, stage move and phase time) and `dashboard-url.txt`. It is personal and never part of this repository.
 
 ### Menu and settings
-Type `/understand` to open the menu: Stats or Settings. Settings shows your current values and lets you change them: go back a stage (moving up happens on its own), switch stats mode, change your primary language, add a language or lower a code dial rung, skip the gates for one task, or reset to stage 1.
+Type `/understand-first:menu` to open the menu: Stats or Settings. Settings shows your current values and lets you change them: go back a stage (moving up happens on its own), switch stats mode, change your primary language, add a language or lower a code dial rung, skip the gates for one task, or reset to stage 1.
 
 ### Stats
 Stats open in the terminal by default, with a menu for view, range and filter. Nothing leaves your machine.
 
-Dashboard mode is opt-in. `/understand mode dashboard` asks you once, then publishes your ledger and event log to a private claude.ai page with interactive filters, and refreshes it automatically at the end of each piece of work. `/understand mode terminal` turns that off. The mode is stored as `stats-mode` in your ledger header.
+Dashboard mode is opt-in. `/understand-first:menu mode dashboard` asks you once, then publishes your ledger and event log to a private claude.ai page with interactive filters, and refreshes it automatically at the end of each piece of work. `/understand-first:menu mode terminal` turns that off. The mode is stored as `stats-mode` in your ledger header.
 
-For a one-off publish without changing the mode, use `/understand dashboard`. `/understand page` is the same and also refreshes the dashboard's page from `dashboard/index.html` after the plugin changes. `/understand terminal` forces the terminal view while dashboard mode is on.
+For a one-off publish without changing the mode, use `/understand-first:menu dashboard`. `/understand-first:menu page` is the same and also refreshes the dashboard's page from `dashboard/index.html` after the plugin changes. `/understand-first:menu terminal` forces the terminal view while dashboard mode is on.
 
 ### Customizing
 - Rules injected every session: `hooks/core-rules.md`.
