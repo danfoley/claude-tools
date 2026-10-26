@@ -34,8 +34,8 @@ If you have no status line, set `statusLine` in `~/.claude/settings.json` to `{"
 
 ### Install
 ```
-/plugin marketplace add danjfoleyrp/claude-customizations
-/plugin install understand-first@claude-customizations
+/plugin marketplace add danfoley/claude-tools
+/plugin install understand-first@claude-tools
 ```
 
 Try it from a local checkout without installing:
