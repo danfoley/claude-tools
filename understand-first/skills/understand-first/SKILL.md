@@ -1,6 +1,7 @@
 ---
 name: understand-first
-description: Use at the start of any work session with the learner, before any design, coding, config, review or PR work. Also use it whenever the learner asks for help understanding something that already exists, such as a PR, commit, file, function, diff or design ("help me understand this PR", "walk me through this code", "explain what this does"): that runs a walkthrough. Also use it whenever the learner has Claude review a PR or code ("review this PR", "do a code review", "have Claude review this"): that runs a review. Runs understanding gates so the learner can explain every change back and could rebuild it without Claude. Covers the six stages that ramp the process up slowly, the gates, per-concept levels, the per-language code dial, light gates for chores, the concept ledger, inline recall questions, and the retro.
+description: >-
+  Use at the start of any work session with the learner, before any design, coding, config, review or PR work. Also use it whenever the learner asks for help understanding something that already exists, such as a PR, commit, file, function, diff or design ("help me understand this PR", "walk me through this code", "explain what this does"): that runs a walkthrough. Also use it whenever the learner has Claude review a PR or code ("review this PR", "do a code review", "have Claude review this"): that runs a review. Runs understanding gates so the learner can explain every change back and could rebuild it without Claude. Covers the six stages that ramp the process up slowly, the gates, per-concept levels, the per-language code dial, light gates for chores, the concept ledger, inline recall questions, and the retro.
 ---
 
 # Understand-first
