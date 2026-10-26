@@ -17,6 +17,11 @@ Every commit that changes anything under `understand-first/` must bump `version`
 - A commit that changes only `tests/` does not need a version bump, because it does not change what users receive.
 - Unit tests: `python3 -m unittest discover -s tests`. Browser test: `cd tests && npm install && npx playwright test`. Both start their own viewer against a temporary data folder, never a real ledger.
 
+### After pushing a release
+- Refresh the marketplace listing before updating, or `claude plugin update` can say "already at the latest version" for a version that is already on GitHub: run `claude plugin marketplace update claude-tools`, then `claude plugin update understand-first@claude-tools`.
+- Restart the live viewer from the new version folder so it never runs from an old one: `python3 <installed plugin folder>/scripts/viewer.py stop`, then `ensure`. The next session start does this by itself when the version changed; do it by hand to have it right away.
+- Changed skill, rules or command text loads only in a new session.
+
 ### Before committing
 - Run `claude plugin validate understand-first` and `claude plugin validate .`.
 - Run the unit tests and the browser test.
