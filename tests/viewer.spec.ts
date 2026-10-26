@@ -9,11 +9,12 @@
  *              Recent: lists the work log newest first with its understanding level, problem,
  *              solution and concepts, shows each concept's live status from the ledger, and is
  *              searchable (title, solution, concept name or status, several words, case,
- *              highlighting) and filterable by understanding and kind.
+ *              highlighting) and filterable by understanding and kind (built, walked through,
+ *              reviewed).
  *              No test may leave a JS error behind.
  * TICKET:      none
- * LAST RUN:    2026-10-26, 42 passed in Chromium on parallel workers (Playwright 1.60.0, 5.5s);
- *              126 of 126 passed with --repeat-each=3 (14.0s)
+ * LAST RUN:    2026-10-26, 46 tests; 138 of 138 passed with --repeat-each=3 in Chromium on
+ *              parallel workers (Playwright 1.60.0, 18.6s)
  * CODE STATE:  claude-tools @ main @ 487b3e9 plus the uncommitted viewer work (INFERRED, not
  *              recorded at run time)
  * ENV:         No URL is written in this file. A worker fixture starts the viewer
@@ -39,6 +40,7 @@ type ViewerServer = { url: string; dataDir: string };
 type Ledger = {
   addConcepts: (...blocks: string[]) => void;
   setStatus: (concept: string, status: string) => void;
+  addWork: (item: SeededWork) => void;
   removeWork: () => void;
 };
 type SeededWork = {
@@ -127,6 +129,7 @@ const test = base.extend<{ ledger: Ledger }, { viewerServer: ViewerServer }>({
         const pattern = new RegExp(`(### ${concept}\\n- status: )[a-z]+`);
         writeFileSync(ledgerPath, readFileSync(ledgerPath, 'utf8').replace(pattern, `$1${status}`));
       },
+      addWork: item => appendFileSync(join(viewerServer.dataDir, 'work.md'), `\n${workBlock(item)}`),
       removeWork: () => rmSync(join(viewerServer.dataDir, 'work.md'), { force: true }),
     });
   },
@@ -435,6 +438,41 @@ test.describe('recent screen', () => {
     await expect(workTitles(page)).toHaveText(['Email digest sends each conversation as it goes', 'Renew the wildcard certificate']);
   });
 
+  test('a reviewed piece of work can be filtered by its kind and shows what was missed', async ({ page, ledger }) => {
+    ledger.addWork({
+      title: 'Review of PR 450001: retry the webhook', kind: 'reviewed', date: '2026-10-28', source: 'PR 450001',
+      understanding: 'partly', problem: 'webhooks were dropped on a timeout', solution: 'the PR adds a retry with backoff',
+      concepts: [['idempotency', 'the handler must be safe to run twice']], gaps: 'missed that the retry is not capped',
+    });
+
+    await recent(page).getByRole('button', { name: 'reviewed', exact: true }).click();
+
+    await expect(workTitles(page)).toHaveText(['Review of PR 450001: retry the webhook']);
+    await expect(workCard(page, 'PR 450001')).toContainText('missed that the retry is not capped');
+  });
+
+  test('work skipped on override can be filtered and says how to go back to it', async ({ page, ledger }) => {
+    ledger.addWork(skippedWork());
+
+    await recent(page).getByRole('button', { name: 'skipped', exact: true }).click();
+
+    await expect(workTitles(page)).toHaveText(['Add the retry cap']);
+    await expect(workCard(page, 'Add the retry cap')).toContainText('skipped on override: in a hurry');
+    await expect(workCard(page, 'Add the retry cap')).toContainText('help me understand PR 450002');
+  });
+
+  test('searching "override" finds the work that was skipped', async ({ page, ledger }) => {
+    ledger.addWork(skippedWork());
+
+    await search(page).fill('override');
+
+    await expect(workTitles(page)).toHaveText(['Add the retry cap']);
+  });
+
+  test('work that was not skipped has no note about going back to it', async ({ page }) => {
+    await expect(workCard(page, 'PR 449462')).not.toContainText('Skipped on override');
+  });
+
   test('a filter and a search combine', async ({ page }) => {
     await recent(page).getByRole('button', { name: 'built', exact: true }).click();
     await search(page).fill('expired');
@@ -468,6 +506,14 @@ test.describe('recent screen', () => {
     await expect(page.getByText('Showing 0 of 0')).toBeVisible();
   });
 });
+
+function skippedWork(): SeededWork {
+  return {
+    title: 'Add the retry cap', kind: 'built', date: '2026-10-28', source: 'PR 450002', understanding: 'skipped',
+    problem: 'retries had no limit', solution: 'capped the retries at five',
+    concepts: [['backpressure', 'a cap keeps retries from piling up']], gaps: 'skipped on override: in a hurry',
+  };
+}
 
 function recent(page: Page): Locator {
   return page.getByRole('region', { name: 'Recent' });

@@ -127,6 +127,13 @@ class ViewerTest(unittest.TestCase):
         _, text = self.request("GET", "/api/state")
         self.assertEqual(json.loads(text)["work"][1]["understanding"], "not assessed")
 
+    def test_work_skipped_on_override_keeps_its_skipped_level(self):
+        skipped = "\n### Hurried change\n- kind: built\n- date: 2026-10-28\n- understanding: skipped\n- gaps: skipped on override: in a hurry\n"
+        (self.directory / "work.md").write_text(WORK + skipped)
+        _, text = self.request("GET", "/api/state")
+        last = json.loads(text)["work"][-1]
+        self.assertEqual((last["understanding"], last["gaps"]), ("skipped", "skipped on override: in a hurry"))
+
     def test_without_a_work_log_the_state_has_no_work(self):
         (self.directory / "work.md").unlink()
         _, text = self.request("GET", "/api/state")
