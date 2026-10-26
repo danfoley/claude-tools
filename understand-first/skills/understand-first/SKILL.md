@@ -1,6 +1,6 @@
 ---
 name: understand-first
-description: Use at the start of any work session with the learner, before any design, coding, config, review or PR work. Also use it whenever the learner asks for help understanding something that already exists, such as a PR, commit, file, function, diff or design ("help me understand this PR", "walk me through this code", "explain what this does"): that runs a walkthrough. Runs understanding gates so the learner can explain every change back and could rebuild it without Claude. Covers the six stages that ramp the process up slowly, the gates, per-concept levels, the per-language code dial, light gates for chores, the concept ledger, inline recall questions, and the retro.
+description: Use at the start of any work session with the learner, before any design, coding, config, review or PR work. Also use it whenever the learner asks for help understanding something that already exists, such as a PR, commit, file, function, diff or design ("help me understand this PR", "walk me through this code", "explain what this does"): that runs a walkthrough. Also use it whenever the learner has Claude review a PR or code ("review this PR", "do a code review", "have Claude review this"): that runs a review. Runs understanding gates so the learner can explain every change back and could rebuild it without Claude. Covers the six stages that ramp the process up slowly, the gates, per-concept levels, the per-language code dial, light gates for chores, the concept ledger, inline recall questions, and the retro.
 ---
 
 # Understand-first
@@ -114,6 +114,21 @@ When the learner asks for help understanding something that already exists, such
 
 Asking Claude to explain something is not a delegation. A walkthrough does not edit or review the code; if the learner wants a review or a fix, that is a separate task.
 
+## Review of existing code
+
+When the learner has Claude review a PR or code that already exists ("review this PR", "do a code review", "have Claude review this"), run a review. A review is a walkthrough followed by judgment, kept inside the learner's stage. The code is already written, so the learner is never asked for the pseudocode outline in a review, at any stage.
+
+1. **Understand it first.** Run the walkthrough steps 1 to 7 with one change to step 6: no pseudocode outline at any stage. If the work log already has an entry for this exact item with understanding `understood`, or it was built together in this session and passed its teach-back, skip the teaching and ask one recall question per concept before moving on.
+2. **The learner judges first, by stage.**
+   - Stages 1 and 2: after the walkthrough, ask what they would flag in their own words, then add what Claude sees.
+   - From stage 3: for each chunk, the learner proposes their review comments before any finding is shown: what is wrong, risky, unclear or untested, and the rule behind it. Then compare, saying what they caught, what they missed and why it matters.
+   - From stage 4: the five skeptical-architect questions (why not simpler, what fails, what is untested, what was rejected, known limits) are asked about the PR, and they double as review prompts.
+3. **Claude's findings.** Run a review skill if one is installed, otherwise review directly. Show the findings one at a time. From stage 3 the learner names the rule and the fix before Claude shows its own.
+4. **Nothing leaves without approval.** Claude never posts a comment, votes on, resolves or changes a PR or its code without the learner's explicit approval for that specific action. Drafting comment text is fine, and the learner's own words are preferred.
+5. **Verdict and record.** The verdict on understanding works as in a walkthrough. Write the work log entry with `kind: reviewed`, and put what the learner did not catch or understand in `gaps`. Log `walkthrough-start` and `walkthrough-end` as usual.
+
+A review does not use the build gates, and a stage 6 retro still applies at the end as usual.
+
 ## Work log
 
 Alongside the ledger, Claude keeps `work.md` in the same data directory (its path is in the session-start context): one entry per piece of work, whether it was built together or walked through, so the learner can look back at what was done, how it was solved, which concepts it used and how well they understand it. The viewer's Recent screen and `/understand-first:menu recent` read it, and both are searchable.
@@ -134,8 +149,8 @@ Write or update an entry at the end of each piece of work, in the retention gate
 - gaps: what happens when the parent fails while enqueuing batches
 ```
 
-- `kind` is `built` or `walked through`. `date` is the day it ended, updated when the item is revisited. `source` is optional: the PR, commit, ticket or file.
-- `understanding` is `understood` when the final check passed (explained back, including a prediction), `partly` when some of it was explained and gaps remain, `not yet` when it was stopped or failed, and `not assessed` when there was no check, for example work recorded afterwards. Never `understood` on a fluent restatement alone.
+- `kind` is `built`, `walked through` or `reviewed`. `date` is the day it ended, updated when the item is revisited. `source` is optional: the PR, commit, ticket or file.
+- `understanding` is `understood` when the final check passed (explained back, including a prediction), `partly` when some of it was explained and gaps remain, `not yet` when it was stopped or failed, `skipped` when the learner used the skip-the-gates override (see Skipping), and `not assessed` when there was no check, for example work recorded afterwards. Never `understood` on a fluent restatement alone.
 - `problem` and `solution` are one line each in plain words, so someone returning later gets the story.
 - `concepts` are the abstract concepts the work used, with the same names as in the concept ledger, each with one line on how it was used in this work. Do not write the concept's own status here: the viewer shows the current status from the ledger, so it changes when the ledger does.
 - `gaps` only when something is still unclear; leave the line out otherwise.
@@ -195,7 +210,7 @@ From stage 6, at the end of each task, ask what felt slow, what felt skippable, 
 
 ## Skipping
 
-If the learner says "skip the gates" for a task, or runs `/understand-first:menu skip`, comply, then run a short debrief afterward: what changed, why, and how they would redo it. The same phrases still work in plain speech: "go back a stage" and "go to stage N" change the stage at once.
+If the learner says "skip the gates" for a task, or runs `/understand-first:menu skip`, comply: do the work without the gates, and do not slow them down. Then keep it from being forgotten: at the end, write the work log entry as usual (problem, how it was solved, the concepts it used) with `understanding: skipped` and `gaps: skipped on override: <their reason, or "in a hurry">`. The Recent screen then shows it as skipped, with a note on how to go back to it, and the learner can filter by that level to find everything they still owe themselves. Offer a short debrief (what changed, why, and how they would redo it) but do not force it. To go back to a skipped item, the learner asks for a walkthrough of it ("help me understand this"); when that walkthrough ends, update the same entry with the real level instead of adding a new one. The same phrases still work in plain speech: "go back a stage" and "go to stage N" change the stage at once.
 
 ## Precedence
 

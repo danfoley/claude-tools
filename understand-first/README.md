@@ -24,6 +24,9 @@ You can search it: type words and only the work where every word matches in the 
 ### Understanding work that already exists
 Ask in plain sentences: "help me understand this PR", "walk me through this function", "what does this commit do". Claude runs a walkthrough instead of explaining everything at once. You say what you think it does first. Claude splits it into small chunks, teaches the concepts you are missing with a link, and asks you to explain each chunk back or predict what happens in a case that is not in the code. It ends with you explaining the whole thing back, and it only counts as understood when you can. At stage 4 it adds the architect questions, and at stage 5 a pseudocode outline. What you learn goes into your concept ledger, and a walkthrough alone can take a concept to explained but never to solid.
 
+### Code review
+When you have Claude review a PR or code ("review this PR", "do a code review"), the plugin runs a review: a walkthrough first, then your judgment, kept to your stage. At stages 1 and 2 you say what you would flag before Claude adds what it sees. From stage 3 you propose your own review comments for each chunk and the rule behind them before any finding is shown, and we compare what you caught and what you missed. From stage 4 the architect questions are asked about the PR. A review never asks for the pseudocode outline, because the code is already written, and Claude never posts, votes on or changes a PR without your approval for that action. The result goes into the work log as a `reviewed` entry, with what you did not catch under "still unclear".
+
 ### Code dial
 From stage 2 you write a little code, and the amount grows by itself: one line, one test assertion, one whole test, one whole function. It is tracked per language, so a new language starts at the bottom. It only applies to concepts you have earned at level 2 or higher; concept levels always win. You never write the whole change from scratch.
 
@@ -80,4 +83,4 @@ The viewer is a small local page, served only on your machine at `http://127.0.0
 - Full protocol: `skills/understand-first/SKILL.md`.
 
 ### Skipping
-Say "skip the gates" for an emergency. Claude will comply and run a short debrief afterward.
+Say "skip the gates" when you are in a hurry, or run `/understand-first:menu skip`. Claude does the work without slowing you down, and records it in the work log as `skipped` with your reason. It shows in the Recent screen with a note on how to go back to it, and you can filter Recent by `skipped` to find everything you still owe yourself. To go back to an item, ask for a walkthrough of it ("help me understand this"); when that ends, the same entry gets its real understanding level. A short debrief is offered, never forced.

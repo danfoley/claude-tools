@@ -61,7 +61,7 @@ Run `viewer.py state` and print the current values in a few lines: stage and its
 Run `viewer.py act '<json>'` with the matching request and report its one-line answer or its refusal as it came:
 
 - `stage <n>`: `{"action": "stage-down", "to": <n>}`
-- `skip`: `{"action": "skip-gates"}`, then tell the learner Claude will skip the gates for the next task and debrief afterward.
+- `skip`: `{"action": "skip-gates"}`, then tell the learner Claude will skip the gates for the next task without slowing them down, and will record it in the work log as skipped, so it shows in Recent and can be gone back to.
 - `reset`: ask in plain text "Reset to stage 1? Your concepts and code dial stay. Reply yes." and wait. Only on a yes run `{"action": "reset-stage", "confirm": true}`.
 - `language <name>`: `{"action": "set-language", "language": "<name>"}`
 - `add <language>`: `{"action": "add-language", "language": "<language>"}`

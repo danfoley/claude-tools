@@ -124,9 +124,9 @@
   var FILTER_KEY = 'understand-first-status-filter';
   var LANGUAGE_KEY = 'understand-first-language';
   var SCREENS = ['stats', 'recent', 'languages', 'settings'];
-  var UNDERSTANDING_LEVELS = ['understood', 'partly', 'not yet', 'not assessed'];
-  var WORK_KINDS = ['built', 'walked through'];
-  var UNDERSTANDING_TONES = { 'understood': 'solid', 'partly': 'shaky', 'not yet': 'bad' };
+  var UNDERSTANDING_LEVELS = ['understood', 'partly', 'not yet', 'skipped', 'not assessed'];
+  var WORK_KINDS = ['built', 'walked through', 'reviewed'];
+  var UNDERSTANDING_TONES = { 'understood': 'solid', 'partly': 'shaky', 'not yet': 'bad', 'skipped': 'shaky' };
   var recentQuery = '';
   var understandingFilter = '';
   var kindFilter = '';
@@ -405,7 +405,10 @@
       labelledField('Problem', item.problem, tokens),
       labelledField('How it was solved', item.solution, tokens),
       concepts.length ? el('div', { role: 'list', 'aria-label': 'Concepts used in ' + item.title }, concepts) : null,
-      labelledField('Still unclear', item.gaps, tokens)
+      labelledField('Still unclear', item.gaps, tokens),
+      item.understanding === 'skipped'
+        ? el('div', { 'class': 'muted', text: 'Skipped on override. To go back to it, ask Claude: "help me understand ' + (item.source || item.title) + '".' })
+        : null
     );
   }
 

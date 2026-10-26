@@ -20,7 +20,7 @@ MAX_BODY_BYTES = 10_000
 EVENTS_SHOWN = 100
 APPLIED_PREFIX = "- applied in "
 WORK_CONCEPT_PREFIX = "  - "
-WORK_UNDERSTANDING_LEVELS = ("understood", "partly", "not yet")
+WORK_UNDERSTANDING_LEVELS = ("understood", "partly", "not yet", "skipped")
 LANGUAGE_NAME = re.compile(r"^[A-Za-z0-9 .+#-]{1,40}$")
 DIAL_LINE = re.compile(r"^- (?P<language>.+?): rung (?P<rung>\d+), clean streak (?P<streak>\d+)$")
 SECURITY_HEADERS = {
@@ -341,7 +341,7 @@ def stats_mode_dashboard(directory, request):
 
 def skip_gates(directory, request):
     log_event(directory, "gates-skipped", "learner request via the viewer", "skip the gates for the next task")
-    return "Noted. Claude will skip the gates for the next task and debrief afterward."
+    return "Noted. Claude will skip the gates for the next task and record it as skipped in the work log, so you can go back to it."
 
 
 ACTIONS = {
