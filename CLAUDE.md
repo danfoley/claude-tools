@@ -12,6 +12,12 @@ Every commit that changes anything under `understand-first/` must bump `version`
 - When a higher number goes up, the lower numbers reset to 0.
 - A version that has been pushed is never edited again. The next change gets a new version.
 
+### Tests
+- Tests live in `tests/` at the repo root, outside the plugin folder, so installing the plugin never downloads them. Do not put test files inside `understand-first/`.
+- A commit that changes only `tests/` does not need a version bump, because it does not change what users receive.
+- Unit tests: `python3 -m unittest discover -s tests`. Browser test: `cd tests && npm install && npx playwright test`. Both start their own viewer against a temporary data folder, never a real ledger.
+
 ### Before committing
 - Run `claude plugin validate understand-first` and `claude plugin validate .`.
+- Run the unit tests and the browser test.
 - Mark a breaking change with `!` after the commit scope, as in `feat(understand-first)!: ...`.

@@ -1,0 +1,14 @@
+{
+  "name": "claude-tools-tests",
+  "private": true,
+  "description": "Tests for the plugins in this marketplace. Not part of any plugin, so they are never installed.",
+  "scripts": {
+    "test:unit": "python3 -m unittest discover -s . -p 'test_*.py'",
+    "test:browser": "playwright test",
+    "test": "npm run test:unit && npm run test:browser"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.60.0",
+    "@types/node": "^24.2.0"
+  }
+}
