@@ -16,6 +16,9 @@ Each stage adds to the one before. Claude moves you up on its own after at least
 - Stage 5: a pseudocode outline of the whole change in your own words.
 - Stage 6: a retro at the end of each task. This is the full process.
 
+### Understanding work that already exists
+Ask in plain sentences: "help me understand this PR", "walk me through this function", "what does this commit do". Claude runs a walkthrough instead of explaining everything at once. You say what you think it does first. Claude splits it into small chunks, teaches the concepts you are missing with a link, and asks you to explain each chunk back or predict what happens in a case that is not in the code. It ends with you explaining the whole thing back, and it only counts as understood when you can. At stage 4 it adds the architect questions, and at stage 5 a pseudocode outline. What you learn goes into your concept ledger, and a walkthrough alone can take a concept to explained but never to solid.
+
 ### Code dial
 From stage 2 you write a little code, and the amount grows by itself: one line, one test assertion, one whole test, one whole function. It is tracked per language, so a new language starts at the bottom. It only applies to concepts you have earned at level 2 or higher; concept levels always win. You never write the whole change from scratch.
 
