@@ -18,18 +18,25 @@ escape_for_json() {
   printf '%s' "$text"
 }
 
+install_status_script() {
+  { mkdir -p "$data_dir" && printf '%s\n' "$(<"${hooks_dir%/*}/statusline/status.sh")" > "${data_dir}/status.sh"; } 2>/dev/null || true
+}
+
 hooks_dir="$(script_dir)"
-data_dir="${CLAUDE_PLUGIN_DATA:-$HOME/.claude/plugins/data/understand-first}"
-ledger_path="${data_dir}/concepts.md"
+data_dir="${UNDERSTAND_FIRST_DATA:-$HOME/.claude/understand-first}"
+ledger_path="${data_dir}/ledger.md"
+events_path="${data_dir}/events.jsonl"
+
+install_status_script
 
 rules="$(<"${hooks_dir}/core-rules.md")"
 
 if [ -r "$ledger_path" ]; then
   ledger="$(<"$ledger_path")"
 else
-  ledger="(no ledger yet: create it at the first teach-back and ask the learner for their target language)"
+  ledger="(no ledger yet: ask the learner for their primary language, then create it with stage 1 before the first gate)"
 fi
 
-context="${rules}"$'\n\n'"Ledger path: ${ledger_path}"$'\n\n'"Ledger contents:"$'\n'"${ledger}"
+context="${rules}"$'\n\n'"Ledger path: ${ledger_path}"$'\n'"Event log path: ${events_path}"$'\n'"Source map: ${hooks_dir%/*}/sources.md"$'\n'"Added sources: ${data_dir}/sources-added.md"$'\n\n'"Ledger contents:"$'\n'"${ledger}"
 
 printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s"}}\n' "$(escape_for_json "$context")"
