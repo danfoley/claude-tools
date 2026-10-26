@@ -3,5 +3,6 @@
   "version": "0.1.0",
   "description": "Changes how Claude works with you: gates that make sure you understand, can explain back, and could rebuild everything without Claude.",
   "author": { "name": "Dan Foley" },
+  "license": "MIT",
   "skills": "./skills/"
 }
