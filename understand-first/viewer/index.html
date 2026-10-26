@@ -67,6 +67,14 @@
   .work { gap: 8px; }
   .work h3 { margin: 0; font-size: 16px; overflow-wrap: anywhere; }
   .work .field { overflow-wrap: anywhere; }
+  .work summary { display: grid; gap: 8px; cursor: pointer; list-style: none; }
+  .work summary::-webkit-details-marker { display: none; }
+  .work summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 4px; }
+  .work summary .title { margin: 0; font-size: 16px; font-weight: 600; overflow-wrap: anywhere; }
+  .work summary .title::before { content: "\25B8"; display: inline-block; width: 1.2em; color: var(--muted); }
+  .work details[open] > summary .title::before { content: "\25BE"; }
+  .work .body { display: grid; gap: 8px; margin-top: 8px; }
+  .work .example { color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
   .work-concept { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 6px 0; border-top: 1px solid var(--line); }
   .work-concept .name { font-weight: 600; overflow-wrap: anywhere; }
   .work-concept .detail { grid-column: 1 / -1; color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
@@ -130,6 +138,9 @@
   var recentQuery = '';
   var understandingFilter = '';
   var kindFilter = '';
+  var EVENT_MATCHES_SHOWN = 50;
+  var openKeys = {};
+  var queryThatOpenedCards = '';
   var recentParts = null;
   var shownRecent = '';
   var RUNG_NAMES = ['one line', 'one test assertion', 'one whole test', 'one whole function'];
@@ -355,20 +366,33 @@
     return statuses[name.toLowerCase()] || 'not in ledger';
   }
 
-  function searchableText(item, statuses) {
-    var parts = [item.title, item.kind, item.understanding, item.date, item.source, item.problem, item.solution, item.gaps];
-    item.concepts.forEach(function (concept) { parts.push(concept.name, concept.use, liveStatus(statuses, concept.name)); });
-    return parts.join(' ').toLowerCase();
+  function containsEveryToken(text, tokens) {
+    var haystack = text.toLowerCase();
+    return tokens.every(function (token) { return haystack.indexOf(token) !== -1; });
   }
 
-  function visibleWork(statuses) {
-    var tokens = queryTokens();
+  function workSearchText(item, statuses) {
+    var parts = [item.title, item.kind, item.understanding, item.date, item.source, item.problem, item.solution, item.gaps];
+    item.concepts.forEach(function (concept) { parts.push(concept.name, concept.use, liveStatus(statuses, concept.name)); });
+    return parts.join(' ');
+  }
+
+  function conceptSearchText(concept) {
+    var parts = [concept.name, concept.status || 'new', concept.verified, concept.words, concept.recall].concat(concept.exampleNotes || []);
+    Object.keys(concept.applied || {}).forEach(function (language) { parts.push(language, concept.applied[language]); });
+    return parts.join(' ');
+  }
+
+  function eventSearchText(event) {
+    return [event.date, event.time, event.event, event.concept, event.note, event.language].join(' ');
+  }
+
+  function visibleWork(statuses, tokens) {
     var matching = [];
     state.work.forEach(function (item, index) {
       if (understandingFilter && item.understanding !== understandingFilter) return;
       if (kindFilter && item.kind !== kindFilter) return;
-      var haystack = searchableText(item, statuses);
-      if (tokens.every(function (token) { return haystack.indexOf(token) !== -1; })) matching.push({ item: item, index: index });
+      if (containsEveryToken(workSearchText(item, statuses), tokens)) matching.push({ item: item, index: index });
     });
     matching.sort(function (a, b) {
       if (a.item.date === b.item.date) return b.index - a.index;
@@ -394,14 +418,38 @@
     );
   }
 
+  function workKey(item) {
+    return 'work:' + item.title + '|' + item.date;
+  }
+
+  function conceptKey(concept) {
+    return 'concept:' + concept.name;
+  }
+
+  function disclosure(key, summaryContent, body) {
+    var details = el('details', null,
+      el('summary', { onclick: function () { rememberOpen(key, !details.open); } }, summaryContent),
+      body
+    );
+    details.open = openKeys[key] === true;
+    return details;
+  }
+
+  function rememberOpen(key, isOpen) {
+    if (isOpen) openKeys[key] = true;
+    else delete openKeys[key];
+  }
+
   function workCard(item, statuses, tokens) {
     var concepts = item.concepts.map(function (concept) { return workConcept(concept, statuses, tokens); });
-    return el('div', { 'class': 'card work', role: 'listitem' },
-      el('h3', null, marked(item.title, tokens)),
+    var summary = [
+      el('h3', { 'class': 'title' }, marked(item.title, tokens)),
       el('div', { 'class': 'chips' },
         el('span', { 'class': 'chip static new', text: item.kind || 'work' }),
         understandingChip(item.understanding),
-        el('span', { 'class': 'muted', text: [item.date, item.source].filter(Boolean).join(' · ') })),
+        el('span', { 'class': 'muted', text: [item.date, item.source].filter(Boolean).join(' · ') }))
+    ];
+    var body = el('div', { 'class': 'body' },
       labelledField('Problem', item.problem, tokens),
       labelledField('How it was solved', item.solution, tokens),
       concepts.length ? el('div', { role: 'list', 'aria-label': 'Concepts used in ' + item.title }, concepts) : null,
@@ -409,6 +457,30 @@
       item.understanding === 'skipped'
         ? el('div', { 'class': 'muted', text: 'Skipped on override. To go back to it, ask Claude: "help me understand ' + (item.source || item.title) + '".' })
         : null
+    );
+    return el('div', { 'class': 'card work', role: 'listitem' }, disclosure(workKey(item), summary, body));
+  }
+
+  function conceptMatchCard(concept, tokens) {
+    var summary = [
+      el('span', { 'class': 'title' }, marked(concept.name, tokens)),
+      el('div', { 'class': 'chips' }, el('span', { 'class': 'chip static ' + (concept.status || 'new'), text: concept.status || 'new' }))
+    ];
+    var body = el('div', { 'class': 'body' },
+      labelledField('In your words', concept.words, tokens),
+      labelledField('Recall question', concept.recall, tokens),
+      labelledField('Last verified', concept.verified, tokens),
+      concept.exampleNotes.map(function (note) { return el('div', { 'class': 'example' }, marked(note, tokens)); }),
+      Object.keys(concept.applied).map(function (language) { return labelledField('Applied in ' + language, concept.applied[language], tokens); })
+    );
+    return el('div', { 'class': 'card work', role: 'listitem' }, disclosure(conceptKey(concept), summary, body));
+  }
+
+  function eventMatchRow(event, tokens) {
+    var detail = [event.concept, event.note, event.language].filter(Boolean).join(' · ');
+    return el('div', { 'class': 'event', role: 'listitem' },
+      el('div', { 'class': 'when', text: [event.date, event.time].filter(Boolean).join(' ') }),
+      el('div', { 'class': 'what' }, el('b', null, marked(event.event || '', tokens)), detail ? ' · ' : '', marked(detail, tokens))
     );
   }
 
@@ -428,10 +500,55 @@
     renderRecent(true);
   }
 
+  function searchEverything(statuses, tokens) {
+    var isSearching = tokens.length > 0;
+    return {
+      isSearching: isSearching,
+      work: visibleWork(statuses, tokens),
+      concepts: isSearching ? state.concepts.filter(function (concept) { return containsEveryToken(conceptSearchText(concept), tokens); }) : [],
+      events: isSearching ? state.events.filter(function (event) { return containsEveryToken(eventSearchText(event), tokens); }) : []
+    };
+  }
+
+  function keysOfEverythingShown(found) {
+    var keys = {};
+    found.work.forEach(function (item) { keys[workKey(item)] = true; });
+    found.concepts.forEach(function (concept) { keys[conceptKey(concept)] = true; });
+    return keys;
+  }
+
+  function expandAll() {
+    openKeys = keysOfEverythingShown(searchEverything(conceptStatusByName(), queryTokens()));
+    renderRecent(true);
+  }
+
+  function collapseAll() {
+    openKeys = {};
+    renderRecent(true);
+  }
+
+  function resultSection(heading, label, rows, isHeadingShown) {
+    if (!rows.length) return null;
+    return [
+      isHeadingShown ? el('h2', { text: heading + ' (' + rows.length + ')' }) : null,
+      el('div', { 'class': 'results', role: 'list', 'aria-label': label }, rows)
+    ];
+  }
+
+  function resultSections(found, statuses, tokens) {
+    var shownEvents = found.events.slice(0, EVENT_MATCHES_SHOWN);
+    return [
+      resultSection('Work', 'Recent work', found.work.map(function (item) { return workCard(item, statuses, tokens); }), found.isSearching),
+      resultSection('Concepts', 'Matching concepts', found.concepts.map(function (concept) { return conceptMatchCard(concept, tokens); }), true),
+      resultSection('Activity', 'Matching activity', shownEvents.map(function (event) { return eventMatchRow(event, tokens); }), true),
+      found.events.length > shownEvents.length ? el('div', { 'class': 'muted', text: 'Showing the newest ' + shownEvents.length + ' of ' + found.events.length + ' matching events. Add a word to narrow it.' }) : null
+    ];
+  }
+
   function buildRecentControls(root) {
-    var input = el('input', { id: 'recent-search', type: 'search', placeholder: 'Search the work, the concepts, the problem or the solution', 'aria-label': 'Search recent work' });
+    var input = el('input', { id: 'recent-search', type: 'search', placeholder: 'Search everything: the work, concepts, examples, in your words, activity', 'aria-label': 'Search recent work' });
     input.addEventListener('input', function () { recentQuery = input.value; renderRecent(false); });
-    var parts = { input: input, filters: el('div', { 'class': 'results' }), summary: el('div', { 'class': 'controls' }), results: el('div', { 'class': 'results', role: 'list', 'aria-label': 'Recent work' }) };
+    var parts = { input: input, filters: el('div', { 'class': 'results' }), summary: el('div', { 'class': 'controls' }), results: el('div', { 'class': 'results' }) };
     replaceChildren(root, [
       el('div', { 'class': 'card' }, el('h2', { text: 'Recent work' }), input, parts.filters, parts.summary),
       parts.results
@@ -443,11 +560,16 @@
     var root = document.getElementById('recent');
     var statuses = conceptStatusByName();
     if (!recentParts) recentParts = buildRecentControls(root);
-    var key = JSON.stringify([state.work, statuses, recentQuery, understandingFilter, kindFilter]);
+    var key = JSON.stringify([state.work, state.concepts, state.events, recentQuery, understandingFilter, kindFilter]);
     if (!isForced && key === shownRecent) return;
     shownRecent = key;
     var tokens = queryTokens();
-    var shown = visibleWork(statuses);
+    var found = searchEverything(statuses, tokens);
+    if (recentQuery !== queryThatOpenedCards) {
+      queryThatOpenedCards = recentQuery;
+      openKeys = found.isSearching ? keysOfEverythingShown(found) : {};
+    }
+    var shown = found.work;
     var isFiltered = recentQuery.trim() !== '' || understandingFilter !== '' || kindFilter !== '';
     replaceChildren(recentParts.filters, [
       recentFilterGroup('Understanding', UNDERSTANDING_LEVELS, understandingFilter, function (value) { understandingFilter = value; renderRecent(true); }),
@@ -455,12 +577,22 @@
     ]);
     replaceChildren(recentParts.summary, [
       el('span', { 'class': 'muted', role: 'status', text: 'Showing ' + shown.length + ' of ' + state.work.length }),
+      hasCards(found) ? el('button', { type: 'button', onclick: expandAll }, 'Expand all') : null,
+      hasCards(found) ? el('button', { type: 'button', onclick: collapseAll }, 'Collapse all') : null,
       isFiltered ? el('button', { type: 'button', onclick: clearRecentFilters }, 'Clear search and filters') : null
     ]);
-    var empty = state.work.length === 0
+    var isEmpty = !shown.length && !found.concepts.length && !found.events.length;
+    replaceChildren(recentParts.results, isEmpty ? [el('div', { 'class': 'card muted', text: emptyMessage() })] : resultSections(found, statuses, tokens));
+  }
+
+  function hasCards(found) {
+    return found.work.length > 0 || found.concepts.length > 0;
+  }
+
+  function emptyMessage() {
+    return state.work.length === 0 && queryTokens().length === 0
       ? 'No work recorded yet. Claude adds an entry when a piece of work or a walkthrough ends.'
       : 'Nothing matches. Try fewer words, or clear the filters.';
-    replaceChildren(recentParts.results, shown.length ? shown.map(function (item) { return workCard(item, statuses, tokens); }) : [el('div', { 'class': 'card muted', text: empty })]);
   }
 
   function languageSwitcher(active) {

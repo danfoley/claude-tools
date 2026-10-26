@@ -339,6 +339,7 @@ test.describe('recent screen', () => {
   });
 
   test('shows the concepts involved and how each was used', async ({ page }) => {
+    await openWork(page, 'PR 449462');
     const idempotency = workConcept(page, 'PR 449462', 'idempotency');
 
     await expect(idempotency).toContainText('a redelivered batch skips recipients already dispatched');
@@ -350,11 +351,13 @@ test.describe('recent screen', () => {
   });
 
   test('each concept shows its current status from the ledger', async ({ page }) => {
+    await openWork(page, 'PR 449462');
     await expect(workConcept(page, 'PR 449462', 'idempotency')).toContainText('shaky');
     await expect(workConcept(page, 'PR 449462', 'batching')).toContainText('explained');
   });
 
   test('a concept status follows the ledger on the live refresh', async ({ page, ledger }) => {
+    await openWork(page, 'PR 449462');
     ledger.setStatus('idempotency', 'solid');
 
     await expect(workConcept(page, 'PR 449462', 'idempotency')).toContainText('solid', { timeout: 10_000 });
@@ -362,6 +365,7 @@ test.describe('recent screen', () => {
   });
 
   test('a concept that is not in the ledger says so', async ({ page }) => {
+    await openWork(page, 'wildcard certificate');
     await expect(workConcept(page, 'wildcard certificate', 'certificate-chains')).toContainText('not in ledger');
   });
 
@@ -507,6 +511,169 @@ test.describe('recent screen', () => {
   });
 });
 
+test.describe('recent screen: collapsing', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.getByRole('link', { name: 'Recent' }).click();
+  });
+
+  test('each piece of work starts collapsed, showing only its title and chips', async ({ page }) => {
+    const card = workCard(page, 'PR 449462');
+
+    await expect(card.getByRole('heading', { level: 3 })).toBeVisible();
+    await expect(card).toContainText('partly');
+    await expect(card.getByText('a retry of the whole send re-emailed people')).toBeHidden();
+    await expect(card.getByText('a redelivered batch skips recipients already dispatched')).toBeHidden();
+  });
+
+  test('clicking the title opens the details and clicking again closes them', async ({ page }) => {
+    const card = workCard(page, 'PR 449462');
+
+    await card.getByRole('heading', { level: 3 }).click();
+    await expect(card.getByText('a retry of the whole send re-emailed people')).toBeVisible();
+    await expect(card.getByText('what happens when the parent fails while enqueuing batches')).toBeVisible();
+
+    await card.getByRole('heading', { level: 3 }).click();
+    await expect(card.getByText('a retry of the whole send re-emailed people')).toBeHidden();
+  });
+
+  test('the details open from the keyboard', async ({ page }) => {
+    const card = workCard(page, 'PR 449462');
+
+    await card.locator('summary').focus();
+    await page.keyboard.press('Enter');
+
+    await expect(card.getByText('a retry of the whole send re-emailed people')).toBeVisible();
+  });
+
+  test('Expand all opens every card and Collapse all closes them', async ({ page }) => {
+    await page.getByRole('button', { name: 'Expand all' }).click();
+    await expect(recent(page).getByText('delete each conversation once its emails are queued')).toBeVisible();
+    await expect(recent(page).getByText('issued a new one and replaced the encrypted files')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Collapse all' }).click();
+    await expect(recent(page).getByText('delete each conversation once its emails are queued')).toBeHidden();
+    await expect(recent(page).getByText('issued a new one and replaced the encrypted files')).toBeHidden();
+  });
+
+  test('an open card stays open on the live refresh', async ({ page, ledger }) => {
+    const card = workCard(page, 'PR 449462');
+    await card.getByRole('heading', { level: 3 }).click();
+
+    ledger.setStatus('idempotency', 'solid');
+
+    await expect(workConcept(page, 'PR 449462', 'idempotency')).toContainText('solid', { timeout: 10_000 });
+    await expect(card.getByText('a retry of the whole send re-emailed people')).toBeVisible();
+  });
+
+  test('a search opens the cards that match so the match can be seen', async ({ page }) => {
+    await search(page).fill('unit of retry');
+
+    await expect(workCard(page, 'PR 449462').getByText('the unit of retry became 50 recipients')).toBeVisible();
+  });
+
+  test('clearing the search closes the cards again', async ({ page }) => {
+    await search(page).fill('unit of retry');
+    await search(page).fill('');
+
+    await expect(workCard(page, 'PR 449462').getByText('the unit of retry became 50 recipients')).toBeHidden();
+  });
+});
+
+test.describe('recent screen: search across everything', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.getByRole('link', { name: 'Recent' }).click();
+  });
+
+  test('without a search only the work is listed', async ({ page }) => {
+    await expect(recent(page).getByRole('heading', { level: 2, name: /^Concepts/ })).toHaveCount(0);
+    await expect(recent(page).getByRole('heading', { level: 2, name: /^Activity/ })).toHaveCount(0);
+  });
+
+  test('a search finds a concept by what you said in your own words', async ({ page }) => {
+    await search(page).fill('checkpointing in my own words');
+
+    await expect(matchedConcepts(page)).toHaveText([/^checkpointing/]);
+  });
+
+  test('a search finds a concept by its recall question', async ({ page }) => {
+    await search(page).fill('what is lease-with-expiry');
+
+    await expect(matchedConcepts(page)).toHaveText([/^lease-with-expiry/]);
+  });
+
+  test('a search finds a concept by the text of one of its examples', async ({ page, ledger }) => {
+    ledger.addConcepts(conceptBlock('backpressure', 'new', {}, 'slow producers when the queue is full'));
+
+    await search(page).fill('slow producers');
+
+    await expect(matchedConcepts(page)).toHaveText([/^backpressure/]);
+  });
+
+  test('a search finds a concept by how it was applied in a language', async ({ page }) => {
+    await search(page).fill('idempotency key header');
+
+    await expect(matchedConcepts(page)).toHaveText([/^idempotency/]);
+  });
+
+  test('a concept with no work entry is still found', async ({ page }) => {
+    await search(page).fill('failure-isolation');
+
+    await expect(workTitles(page)).toHaveCount(1);
+    await expect(matchedConcepts(page)).toHaveText([/^failure-isolation/]);
+  });
+
+  test('a matched concept opens to show its details', async ({ page }) => {
+    await search(page).fill('lease-with-expiry');
+
+    await expect(matchedConcepts(page).first().getByText('what is lease-with-expiry?')).toBeVisible();
+  });
+
+  test('a search finds an activity event by its note', async ({ page }) => {
+    await search(page).fill('lowered one rung');
+
+    await expect(matchedEvents(page)).toHaveCount(1);
+    await expect(matchedEvents(page).first()).toContainText('dial-down');
+  });
+
+  test('a search finds an activity event for a language', async ({ page }) => {
+    await search(page).fill('typescript');
+
+    await expect(matchedEvents(page).first()).toContainText('setting-changed');
+  });
+
+  test('a search that only matches a concept does not say nothing matches', async ({ page }) => {
+    await search(page).fill('checkpointing in my own words');
+
+    await expect(page.getByText('Nothing matches.')).toHaveCount(0);
+    await expect(workTitles(page)).toHaveCount(0);
+  });
+
+  test('matches in concepts and activity are highlighted', async ({ page }) => {
+    await search(page).fill('lowered');
+
+    await expect(matchedEvents(page).first().getByRole('mark')).toHaveText('lowered');
+  });
+
+  test('the understanding filter does not hide matched concepts', async ({ page }) => {
+    await search(page).fill('checkpointing');
+    await recent(page).getByRole('button', { name: 'skipped', exact: true }).click();
+
+    await expect(matchedConcepts(page)).toHaveText([/^checkpointing/]);
+  });
+});
+
+async function openWork(page: Page, title: string): Promise<void> {
+  await workCard(page, title).getByRole('heading', { level: 3 }).click();
+}
+
+function matchedConcepts(page: Page): Locator {
+  return recent(page).getByRole('list', { name: 'Matching concepts' }).getByRole('listitem');
+}
+
+function matchedEvents(page: Page): Locator {
+  return recent(page).getByRole('list', { name: 'Matching activity' }).getByRole('listitem');
+}
+
 function skippedWork(): SeededWork {
   return {
     title: 'Add the retry cap', kind: 'built', date: '2026-10-28', source: 'PR 450002', understanding: 'skipped',
@@ -554,7 +721,7 @@ function namesStartingWith(names: string[]): RegExp[] {
   return names.map(name => new RegExp(`^${name}`));
 }
 
-function conceptBlock(name: string, status: string, applied: Record<string, string> = {}): string {
+function conceptBlock(name: string, status: string, applied: Record<string, string> = {}, example = 'something'): string {
   const appliedLines = Object.entries(applied).map(([language, note]) => `- applied in ${language}: ${note}`);
   return [
     `### ${name}`,
@@ -564,7 +731,7 @@ function conceptBlock(name: string, status: string, applied: Record<string, stri
     `- recall question: what is ${name}?`,
     ...appliedLines,
     '- examples:',
-    '  - example one (PR 1): something',
+    `  - example one (PR 1): ${example}`,
     '',
   ].join('\n');
 }

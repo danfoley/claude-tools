@@ -17,7 +17,7 @@ PLUGIN_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PORT = 37750
 STAGE_COUNT = 6
 MAX_BODY_BYTES = 10_000
-EVENTS_SHOWN = 100
+EVENTS_SHOWN = 2000
 APPLIED_PREFIX = "- applied in "
 WORK_CONCEPT_PREFIX = "  - "
 WORK_UNDERSTANDING_LEVELS = ("understood", "partly", "not yet", "skipped")
@@ -112,9 +112,10 @@ def parse_concepts(lines):
     concepts = []
     for line in lines:
         if line.startswith("### "):
-            concepts.append({"name": line[4:].strip(), "status": "", "verified": "", "words": "", "recall": "", "examples": 0, "applied": {}})
+            concepts.append({"name": line[4:].strip(), "status": "", "verified": "", "words": "", "recall": "", "examples": 0, "exampleNotes": [], "applied": {}})
         elif concepts and line.startswith("  - "):
             concepts[-1]["examples"] += 1
+            concepts[-1]["exampleNotes"].append(line[len("  - "):].strip())
         elif concepts and line.startswith(APPLIED_PREFIX):
             language, _, note = line[len(APPLIED_PREFIX):].partition(": ")
             if note.strip():

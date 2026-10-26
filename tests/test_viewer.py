@@ -101,6 +101,14 @@ class ViewerTest(unittest.TestCase):
         self.assertEqual(state["concepts"][0]["examples"], 2)
         self.assertEqual(state["eventCount"], 1)
 
+    def test_state_carries_the_text_of_each_concept_example(self):
+        _, text = self.request("GET", "/api/state")
+        concept = json.loads(text)["concepts"][0]
+        self.assertEqual(concept["exampleNotes"], [
+            "email digest (PR 101): send first, record last",
+            "webhook (PR 117): skip stored ids",
+        ])
+
     def test_state_reports_how_a_concept_was_applied_in_each_language(self):
         _, text = self.request("GET", "/api/state")
         concept = json.loads(text)["concepts"][0]
