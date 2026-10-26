@@ -1,6 +1,6 @@
 ---
 description: Show your understand-first stats, change settings, or control the live viewer
-argument-hint: [settings | recent [search words] | stats [days] | stage <n> | skip | reset | language <name> | add <language> | dial <language> | viewer on|off|open|stop|status | mode dashboard|terminal | dashboard | page]
+argument-hint: "[settings | recent [search words] | stats [days] | stage <n> | skip | reset | language <name> | add <language> | dial <language> | viewer on|off|open|stop|status | mode dashboard|terminal | dashboard | page]"
 ---
 
 Show the learner their understand-first stats first; settings are a separate screen. Looking at stats is not a learning event, so the stats views only read data. Changing a setting writes only the ledger header lines (never a concept entry) and appends one line to the event log, and it is always done through the plugin's own script, never by editing the files by hand.
