@@ -4,7 +4,7 @@ Tests for the plugins in this marketplace. They live outside the plugin folders,
 
 ### What is tested
 - `test_viewer.py`: unit tests for the understand-first viewer server. They check how the ledger and event log are read, that every change needs the page's token and the right Host, and that each settings change edits only what it should.
-- `viewer.spec.ts`: a browser test of the viewer page. It checks the status filter on the concept list, including a reload, the live refresh and the keyboard; that the core Stats screen names no language; that the Languages screen switches the code dial, the per-concept notes and the events without changing the concept list; and that the page throws no JS error.
+- `viewer.spec.ts`: a browser test of the viewer page. It checks the status filter on the concept list, including a reload, the live refresh and the keyboard; that the core Stats screen names no language; that the Languages screen switches the code dial, the per-concept notes and the events without changing the concept list; that the Recent screen lists the work log newest first with its understanding level, problem, solution and concepts, shows each concept's live status from the ledger, and can be searched (title, solution, concept name, current status, several words, case, highlighting) and filtered; and that the page throws no JS error.
 
 Both start their own viewer on a spare port against a temporary data folder, so a real ledger is never touched.
 

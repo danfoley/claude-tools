@@ -33,6 +33,27 @@ primary-language: PHP
   - email digest (PR 101): send first, record last
   - webhook (PR 117): skip stored ids
 """
+WORK = """### PR 449462: bulk messages sent in batch jobs
+- kind: walked through
+- date: 2026-10-27
+- source: PR 449462
+- understanding: partly
+- problem: a retry of the whole send re-emailed people who already got it
+- solution: the parent job only plans; small batch jobs send and mark recipients dispatched
+- concepts:
+  - idempotency: a redelivered batch skips recipients already dispatched
+  - batching: the unit of retry became 50 recipients
+- gaps: what happens when the parent fails while enqueuing batches
+
+### Renew the wildcard certificate
+- kind: built
+- date: 2026-10-20
+- understanding: maybe
+- problem: the local certificate expired
+- solution: issued a new one and replaced the encrypted files
+- concepts:
+  - certificate-chains: the intermediate must be replaced with the leaf
+"""
 EVENT = json.dumps({"date": "2026-10-24", "time": "13:56", "event": "gate-retry", "concept": "idempotency", "note": ""})
 
 
@@ -41,6 +62,7 @@ class ViewerTest(unittest.TestCase):
         self.directory = Path(tempfile.mkdtemp())
         (self.directory / "ledger.md").write_text(LEDGER)
         (self.directory / "events.jsonl").write_text(EVENT + "\n")
+        (self.directory / "work.md").write_text(WORK)
         self.server = viewer.ViewerServer(self.directory, 0)
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
         self.addCleanup(self.stop_server)
@@ -87,6 +109,28 @@ class ViewerTest(unittest.TestCase):
             "TypeScript": "an idempotency key header",
         })
         self.assertEqual(concept["words"], "doing it twice is safe")
+
+    def test_state_includes_each_piece_of_work_with_its_concepts(self):
+        _, text = self.request("GET", "/api/state")
+        work = json.loads(text)["work"]
+        self.assertEqual([item["title"] for item in work], ["PR 449462: bulk messages sent in batch jobs", "Renew the wildcard certificate"])
+        first = work[0]
+        self.assertEqual((first["kind"], first["date"], first["understanding"]), ("walked through", "2026-10-27", "partly"))
+        self.assertEqual(first["solution"], "the parent job only plans; small batch jobs send and mark recipients dispatched")
+        self.assertEqual(first["gaps"], "what happens when the parent fails while enqueuing batches")
+        self.assertEqual(first["concepts"], [
+            {"name": "idempotency", "use": "a redelivered batch skips recipients already dispatched"},
+            {"name": "batching", "use": "the unit of retry became 50 recipients"},
+        ])
+
+    def test_an_unknown_understanding_level_reads_as_not_assessed(self):
+        _, text = self.request("GET", "/api/state")
+        self.assertEqual(json.loads(text)["work"][1]["understanding"], "not assessed")
+
+    def test_without_a_work_log_the_state_has_no_work(self):
+        (self.directory / "work.md").unlink()
+        _, text = self.request("GET", "/api/state")
+        self.assertEqual(json.loads(text)["work"], [])
 
     def test_a_request_for_another_host_is_refused(self):
         status, _ = self.request("GET", "/api/state", headers={"Host": "evil.example"})

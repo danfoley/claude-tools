@@ -5,10 +5,15 @@
  *              a reload and the live refresh, and works from the keyboard) and names no language.
  *              Languages: a switcher shows the selected language's code dial, how each concept
  *              was applied in it and its own events, never changes the concept list, and is
- *              remembered across a reload. No test may leave a JS error behind.
+ *              remembered across a reload.
+ *              Recent: lists the work log newest first with its understanding level, problem,
+ *              solution and concepts, shows each concept's live status from the ledger, and is
+ *              searchable (title, solution, concept name or status, several words, case,
+ *              highlighting) and filterable by understanding and kind.
+ *              No test may leave a JS error behind.
  * TICKET:      none
- * LAST RUN:    2026-10-26, 18 passed in Chromium on 6 parallel workers (Playwright 1.60.0, 4.3s);
- *              54 of 54 passed with --repeat-each=3 (8.2s)
+ * LAST RUN:    2026-10-26, 42 passed in Chromium on parallel workers (Playwright 1.60.0, 5.5s);
+ *              126 of 126 passed with --repeat-each=3 (14.0s)
  * CODE STATE:  claude-tools @ main @ 487b3e9 plus the uncommitted viewer work (INFERRED, not
  *              recorded at run time)
  * ENV:         No URL is written in this file. A worker fixture starts the viewer
@@ -19,7 +24,9 @@
  *              and Settings; lists named "Concepts", "Concepts in <language>" and "Recent in
  *              <language>"; chips named "<n> <status>"; "Show all"; the headings "Concepts (...)",
  *              "<language> code dial" and "Concepts in <language> (...)") and to
- *              scripts/viewer.py serve writing viewer.pid with its port.
+ *              scripts/viewer.py serve writing viewer.pid with its port, and to the work.md format
+ *              (### title, - kind / date / source / understanding / problem / solution / gaps,
+ *              and "  - concept: use" lines under "- concepts:").
  * RUN:         cd tests && npm install && npx playwright test
  */
 import { test as base, expect, type Locator, type Page } from '@playwright/test';
@@ -29,7 +36,15 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 type ViewerServer = { url: string; dataDir: string };
-type Ledger = { addConcepts: (...blocks: string[]) => void };
+type Ledger = {
+  addConcepts: (...blocks: string[]) => void;
+  setStatus: (concept: string, status: string) => void;
+  removeWork: () => void;
+};
+type SeededWork = {
+  title: string; kind: string; date: string; source: string; understanding: string;
+  problem: string; solution: string; concepts: Array<[name: string, use: string]>; gaps: string;
+};
 type SeededConcept = [name: string, status: string, applied: Record<string, string>];
 
 const PLUGIN_ROOT = resolve(__dirname, '..', 'understand-first');
@@ -57,6 +72,29 @@ const SEEDED_EVENTS = [
   { date: '2026-10-25', time: '09:10', event: 'dial-down', concept: '', note: 'PHP lowered one rung', language: 'PHP' },
   { date: '2026-10-25', time: '09:12', event: 'setting-changed', concept: '', note: 'added TypeScript at rung 1', language: 'TypeScript' },
 ];
+const SEEDED_WORK: SeededWork[] = [
+  {
+    title: 'PR 449462: bulk messages sent in batch jobs', kind: 'walked through', date: '2026-10-27', source: 'PR 449462',
+    understanding: 'partly', problem: 'a retry of the whole send re-emailed people who already got it',
+    solution: 'the parent job only plans; small batch jobs send and mark recipients dispatched',
+    concepts: [['idempotency', 'a redelivered batch skips recipients already dispatched'], ['batching', 'the unit of retry became 50 recipients']],
+    gaps: 'what happens when the parent fails while enqueuing batches',
+  },
+  {
+    title: 'Email digest sends each conversation as it goes', kind: 'built', date: '2026-10-24', source: 'PR 448805',
+    understanding: 'understood', problem: 'one bad conversation blocked the whole digest',
+    solution: 'delete each conversation once its emails are queued, so a retry only sees what is left',
+    concepts: [['checkpointing', 'progress is recorded as it goes'], ['failure-isolation', 'one failing conversation no longer stops the others']],
+    gaps: '',
+  },
+  {
+    title: 'Renew the wildcard certificate', kind: 'built', date: '2026-10-20', source: '',
+    understanding: 'not yet', problem: 'the local certificate expired',
+    solution: 'issued a new one and replaced the encrypted files',
+    concepts: [['certificate-chains', 'the intermediate must be replaced with the leaf']],
+    gaps: '',
+  },
+];
 const ALL_CONCEPTS = SEEDED_CONCEPTS.map(([name]) => name);
 
 const test = base.extend<{ ledger: Ledger }, { viewerServer: ViewerServer }>({
@@ -82,7 +120,15 @@ const test = base.extend<{ ledger: Ledger }, { viewerServer: ViewerServer }>({
 
   ledger: async ({ viewerServer }, use) => {
     seedData(viewerServer.dataDir);
-    await use({ addConcepts: (...blocks) => appendFileSync(join(viewerServer.dataDir, 'ledger.md'), `\n${blocks.join('\n')}`) });
+    const ledgerPath = join(viewerServer.dataDir, 'ledger.md');
+    await use({
+      addConcepts: (...blocks) => appendFileSync(ledgerPath, `\n${blocks.join('\n')}`),
+      setStatus: (concept, status) => {
+        const pattern = new RegExp(`(### ${concept}\\n- status: )[a-z]+`);
+        writeFileSync(ledgerPath, readFileSync(ledgerPath, 'utf8').replace(pattern, `$1${status}`));
+      },
+      removeWork: () => rmSync(join(viewerServer.dataDir, 'work.md'), { force: true }),
+    });
   },
 
   page: async ({ page, ledger }, use) => {
@@ -259,6 +305,193 @@ test.describe('languages screen', () => {
   });
 });
 
+test.describe('recent screen', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.getByRole('link', { name: 'Recent' }).click();
+  });
+
+  test('lists the work newest first', async ({ page }) => {
+    await expect(workTitles(page)).toHaveText([
+      'PR 449462: bulk messages sent in batch jobs',
+      'Email digest sends each conversation as it goes',
+      'Renew the wildcard certificate',
+    ]);
+  });
+
+  test('shows how well each piece of work is understood', async ({ page }) => {
+    await expect(workCard(page, 'PR 449462')).toContainText('partly');
+    await expect(workCard(page, 'Email digest')).toContainText('understood');
+    await expect(workCard(page, 'wildcard certificate')).toContainText('not yet');
+  });
+
+  test('shows whether it was built or walked through, and when', async ({ page }) => {
+    await expect(workCard(page, 'PR 449462')).toContainText('walked through');
+    await expect(workCard(page, 'PR 449462')).toContainText('2026-10-27');
+    await expect(workCard(page, 'Email digest')).toContainText('built');
+  });
+
+  test('shows the problem and how it was solved', async ({ page }) => {
+    await expect(workCard(page, 'PR 449462')).toContainText('a retry of the whole send re-emailed people who already got it');
+    await expect(workCard(page, 'PR 449462')).toContainText('the parent job only plans; small batch jobs send and mark recipients dispatched');
+  });
+
+  test('shows the concepts involved and how each was used', async ({ page }) => {
+    const idempotency = workConcept(page, 'PR 449462', 'idempotency');
+
+    await expect(idempotency).toContainText('a redelivered batch skips recipients already dispatched');
+    await expect(workConcept(page, 'PR 449462', 'batching')).toContainText('the unit of retry became 50 recipients');
+  });
+
+  test('shows what is still unclear', async ({ page }) => {
+    await expect(workCard(page, 'PR 449462')).toContainText('what happens when the parent fails while enqueuing batches');
+  });
+
+  test('each concept shows its current status from the ledger', async ({ page }) => {
+    await expect(workConcept(page, 'PR 449462', 'idempotency')).toContainText('shaky');
+    await expect(workConcept(page, 'PR 449462', 'batching')).toContainText('explained');
+  });
+
+  test('a concept status follows the ledger on the live refresh', async ({ page, ledger }) => {
+    ledger.setStatus('idempotency', 'solid');
+
+    await expect(workConcept(page, 'PR 449462', 'idempotency')).toContainText('solid', { timeout: 10_000 });
+    await expect(workConcept(page, 'PR 449462', 'idempotency')).not.toContainText('shaky');
+  });
+
+  test('a concept that is not in the ledger says so', async ({ page }) => {
+    await expect(workConcept(page, 'wildcard certificate', 'certificate-chains')).toContainText('not in ledger');
+  });
+
+  test('searching a word in the title narrows the list', async ({ page }) => {
+    await search(page).fill('certificate');
+
+    await expect(workTitles(page)).toHaveText(['Renew the wildcard certificate']);
+  });
+
+  test('searching a word in the solution finds the work', async ({ page }) => {
+    await search(page).fill('dispatched');
+
+    await expect(workTitles(page)).toHaveText(['PR 449462: bulk messages sent in batch jobs']);
+  });
+
+  test('searching a concept name finds the work that used it', async ({ page }) => {
+    await search(page).fill('checkpointing');
+
+    await expect(workTitles(page)).toHaveText(['Email digest sends each conversation as it goes']);
+  });
+
+  test('searching by a concept\'s current status finds the work that used a concept in that status', async ({ page }) => {
+    await search(page).fill('shaky');
+
+    await expect(workTitles(page)).toHaveText(['PR 449462: bulk messages sent in batch jobs']);
+  });
+
+  test('searching "not in ledger" finds work that used a concept the ledger lacks', async ({ page }) => {
+    await search(page).fill('not in ledger');
+
+    await expect(workTitles(page)).toHaveText(['Renew the wildcard certificate']);
+  });
+
+  test('every word of the search must match', async ({ page }) => {
+    await search(page).fill('batch dispatched');
+    await expect(workTitles(page)).toHaveText(['PR 449462: bulk messages sent in batch jobs']);
+
+    await search(page).fill('batch certificate');
+    await expect(workTitles(page)).toHaveCount(0);
+  });
+
+  test('the search ignores case', async ({ page }) => {
+    await search(page).fill('CERTIFICATE');
+
+    await expect(workTitles(page)).toHaveText(['Renew the wildcard certificate']);
+  });
+
+  test('matches are highlighted', async ({ page }) => {
+    await search(page).fill('digest');
+
+    await expect(workCard(page, 'Email digest').getByRole('mark').first()).toHaveText('digest');
+  });
+
+  test('a search with no match says so and can be cleared', async ({ page }) => {
+    await search(page).fill('zebra');
+    await expect(page.getByText('Nothing matches.')).toBeVisible();
+    await expect(page.getByText('Showing 0 of 3')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Clear search and filters' }).click();
+
+    await expect(workTitles(page)).toHaveCount(3);
+    await expect(search(page)).toHaveValue('');
+  });
+
+  test('the understanding filter narrows the list', async ({ page }) => {
+    await recent(page).getByRole('button', { name: 'partly', exact: true }).click();
+
+    await expect(workTitles(page)).toHaveText(['PR 449462: bulk messages sent in batch jobs']);
+  });
+
+  test('the kind filter narrows the list', async ({ page }) => {
+    await recent(page).getByRole('button', { name: 'built', exact: true }).click();
+
+    await expect(workTitles(page)).toHaveText(['Email digest sends each conversation as it goes', 'Renew the wildcard certificate']);
+  });
+
+  test('a filter and a search combine', async ({ page }) => {
+    await recent(page).getByRole('button', { name: 'built', exact: true }).click();
+    await search(page).fill('expired');
+
+    await expect(workTitles(page)).toHaveText(['Renew the wildcard certificate']);
+  });
+
+  test('the count shows how many of the total are shown', async ({ page }) => {
+    await expect(page.getByText('Showing 3 of 3')).toBeVisible();
+
+    await search(page).fill('certificate');
+
+    await expect(page.getByText('Showing 1 of 3')).toBeVisible();
+  });
+
+  test('the search text and results survive a live refresh', async ({ page, ledger }) => {
+    await search(page).fill('batch');
+    await expect(workTitles(page)).toHaveCount(1);
+
+    ledger.setStatus('batching', 'solid');
+
+    await expect(workConcept(page, 'PR 449462', 'batching')).toContainText('solid', { timeout: 10_000 });
+    await expect(search(page)).toHaveValue('batch');
+    await expect(workTitles(page)).toHaveCount(1);
+  });
+
+  test('without a work log it says nothing is recorded yet', async ({ page, ledger }) => {
+    ledger.removeWork();
+
+    await expect(page.getByText('No work recorded yet.')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('Showing 0 of 0')).toBeVisible();
+  });
+});
+
+function recent(page: Page): Locator {
+  return page.getByRole('region', { name: 'Recent' });
+}
+
+function search(page: Page): Locator {
+  return page.getByRole('searchbox', { name: 'Search recent work' });
+}
+
+function workTitles(page: Page): Locator {
+  return recent(page).getByRole('heading', { level: 3 });
+}
+
+function workCard(page: Page, title: string): Locator {
+  return recent(page)
+    .getByRole('list', { name: 'Recent work', exact: true })
+    .getByRole('listitem')
+    .filter({ has: page.getByRole('heading', { name: title }) });
+}
+
+function workConcept(page: Page, title: string, concept: string): Locator {
+  return workCard(page, title).getByRole('list', { name: /^Concepts used in / }).getByRole('listitem').filter({ hasText: concept });
+}
+
 function statsConcepts(page: Page): Locator {
   return page.getByRole('region', { name: 'Stats' }).getByRole('list', { name: 'Concepts', exact: true }).getByRole('listitem');
 }
@@ -290,9 +523,27 @@ function conceptBlock(name: string, status: string, applied: Record<string, stri
   ].join('\n');
 }
 
+function workBlock(item: SeededWork): string {
+  const concepts = item.concepts.map(([name, use]) => `  - ${name}: ${use}`);
+  return [
+    `### ${item.title}`,
+    `- kind: ${item.kind}`,
+    `- date: ${item.date}`,
+    ...(item.source ? [`- source: ${item.source}`] : []),
+    `- understanding: ${item.understanding}`,
+    `- problem: ${item.problem}`,
+    `- solution: ${item.solution}`,
+    '- concepts:',
+    ...concepts,
+    ...(item.gaps ? [`- gaps: ${item.gaps}`] : []),
+    '',
+  ].join('\n');
+}
+
 function seedData(dataDir: string): void {
   const blocks = SEEDED_CONCEPTS.map(([name, status, applied]) => conceptBlock(name, status, applied)).join('\n');
   writeFileSync(join(dataDir, 'ledger.md'), `${LEDGER_HEAD}${blocks}`);
+  writeFileSync(join(dataDir, 'work.md'), SEEDED_WORK.map(workBlock).join('\n'));
   writeFileSync(join(dataDir, 'events.jsonl'), SEEDED_EVENTS.map(event => JSON.stringify(event)).join('\n') + '\n');
 }
 
