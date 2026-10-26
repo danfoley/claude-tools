@@ -58,6 +58,6 @@ else
   ledger="(no ledger yet: ask the learner for their primary language, then create it with stage 1 before the first gate)"
 fi
 
-context="${rules}"$'\n\n'"Ledger path: ${ledger_path}"$'\n'"Event log path: ${events_path}"$'\n'"Source map: ${hooks_dir%/*}/sources.md"$'\n'"Added sources: ${data_dir}/sources-added.md"${viewer_url:+$'\n'"Live viewer: ${viewer_url}"}$'\n\n'"Ledger contents:"$'\n'"${ledger}"
+context="${rules}"$'\n\n'"Ledger path: ${ledger_path}"$'\n'"Event log path: ${events_path}"$'\n'"Source map: ${hooks_dir%/*}/sources.md"$'\n'"Added sources: ${data_dir}/sources-added.md"$'\n'"Work log: ${data_dir}/work.md"${viewer_url:+$'\n'"Live viewer: ${viewer_url}"}$'\n\n'"Ledger contents:"$'\n'"${ledger}"
 
 printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s"}}\n' "$(escape_for_json "$context")"

@@ -59,6 +59,18 @@
   .chip:hover { background: color-mix(in srgb, currentColor 10%, transparent); }
   .chip.static { cursor: default; }
   .chip.static:hover { background: transparent; }
+  .chip.bad { color: var(--danger); }
+  .group { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .group .label { color: var(--muted); font-size: 13px; min-width: 7.5em; }
+  input[type="search"] { width: 100%; padding: 8px 12px; }
+  mark { background: color-mix(in srgb, var(--accent) 28%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
+  .work { gap: 8px; }
+  .work h3 { margin: 0; font-size: 16px; overflow-wrap: anywhere; }
+  .work .field { overflow-wrap: anywhere; }
+  .work-concept { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 6px 0; border-top: 1px solid var(--line); }
+  .work-concept .name { font-weight: 600; overflow-wrap: anywhere; }
+  .work-concept .detail { grid-column: 1 / -1; color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
+  .results { display: grid; gap: 16px; }
   .tabs { display: flex; flex-wrap: wrap; gap: 8px; }
   .tab { border-radius: 999px; padding: 4px 14px; }
   .tab.active { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); font-weight: 600; }
@@ -91,6 +103,7 @@
   <h1>Understand first</h1>
   <nav>
     <a href="#stats" id="nav-stats">Stats</a>
+    <a href="#recent" id="nav-recent">Recent</a>
     <a href="#languages" id="nav-languages">Languages</a>
     <a href="#settings" id="nav-settings">Settings</a>
   </nav>
@@ -98,6 +111,7 @@
 </header>
 <main>
   <section id="stats" aria-label="Stats" hidden></section>
+  <section id="recent" aria-label="Recent" hidden></section>
   <section id="languages" aria-label="Languages" hidden></section>
   <section id="settings" aria-label="Settings" hidden></section>
 </main>
@@ -109,7 +123,15 @@
   var RUNGS = 4;
   var FILTER_KEY = 'understand-first-status-filter';
   var LANGUAGE_KEY = 'understand-first-language';
-  var SCREENS = ['stats', 'languages', 'settings'];
+  var SCREENS = ['stats', 'recent', 'languages', 'settings'];
+  var UNDERSTANDING_LEVELS = ['understood', 'partly', 'not yet', 'not assessed'];
+  var WORK_KINDS = ['built', 'walked through'];
+  var UNDERSTANDING_TONES = { 'understood': 'solid', 'partly': 'shaky', 'not yet': 'bad' };
+  var recentQuery = '';
+  var understandingFilter = '';
+  var kindFilter = '';
+  var recentParts = null;
+  var shownRecent = '';
   var RUNG_NAMES = ['one line', 'one test assertion', 'one whole test', 'one whole function'];
   var state = null;
   var shownStats = '';
@@ -168,7 +190,7 @@
 
   function replaceChildren(parent, children) {
     while (parent.firstChild) parent.removeChild(parent.firstChild);
-    children.forEach(function (child) { parent.appendChild(child); });
+    appendChildren(parent, children);
   }
 
   function currentScreen() {
@@ -305,6 +327,137 @@
       return;
     }
     replaceChildren(root, [stageCard(), conceptsCard(), eventsCard()]);
+  }
+
+  function escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  function queryTokens() {
+    return recentQuery.toLowerCase().split(/\s+/).filter(Boolean);
+  }
+
+  function marked(text, tokens) {
+    if (!text || !tokens.length) return [text || ''];
+    var pattern = new RegExp('(' + tokens.map(escapeRegExp).join('|') + ')', 'gi');
+    return text.split(pattern).map(function (piece, index) {
+      return index % 2 === 1 ? el('mark', { text: piece }) : piece;
+    });
+  }
+
+  function conceptStatusByName() {
+    var statuses = {};
+    state.concepts.forEach(function (concept) { statuses[concept.name.toLowerCase()] = concept.status || 'new'; });
+    return statuses;
+  }
+
+  function liveStatus(statuses, name) {
+    return statuses[name.toLowerCase()] || 'not in ledger';
+  }
+
+  function searchableText(item, statuses) {
+    var parts = [item.title, item.kind, item.understanding, item.date, item.source, item.problem, item.solution, item.gaps];
+    item.concepts.forEach(function (concept) { parts.push(concept.name, concept.use, liveStatus(statuses, concept.name)); });
+    return parts.join(' ').toLowerCase();
+  }
+
+  function visibleWork(statuses) {
+    var tokens = queryTokens();
+    var matching = [];
+    state.work.forEach(function (item, index) {
+      if (understandingFilter && item.understanding !== understandingFilter) return;
+      if (kindFilter && item.kind !== kindFilter) return;
+      var haystack = searchableText(item, statuses);
+      if (tokens.every(function (token) { return haystack.indexOf(token) !== -1; })) matching.push({ item: item, index: index });
+    });
+    matching.sort(function (a, b) {
+      if (a.item.date === b.item.date) return b.index - a.index;
+      return a.item.date < b.item.date ? 1 : -1;
+    });
+    return matching.map(function (entry) { return entry.item; });
+  }
+
+  function understandingChip(level) {
+    return el('span', { 'class': 'chip static ' + (UNDERSTANDING_TONES[level] || 'new'), text: level });
+  }
+
+  function labelledField(label, text, tokens) {
+    return text ? el('div', { 'class': 'field' }, el('b', { text: label + ': ' }), marked(text, tokens)) : null;
+  }
+
+  function workConcept(concept, statuses, tokens) {
+    var status = liveStatus(statuses, concept.name);
+    return el('div', { 'class': 'work-concept', role: 'listitem' },
+      el('span', { 'class': 'name' }, marked(concept.name, tokens)),
+      el('span', { 'class': 'chip static ' + (status === 'not in ledger' ? 'new' : status), title: 'Current status in your ledger', text: status }),
+      concept.use ? el('div', { 'class': 'detail' }, marked(concept.use, tokens)) : null
+    );
+  }
+
+  function workCard(item, statuses, tokens) {
+    var concepts = item.concepts.map(function (concept) { return workConcept(concept, statuses, tokens); });
+    return el('div', { 'class': 'card work', role: 'listitem' },
+      el('h3', null, marked(item.title, tokens)),
+      el('div', { 'class': 'chips' },
+        el('span', { 'class': 'chip static new', text: item.kind || 'work' }),
+        understandingChip(item.understanding),
+        el('span', { 'class': 'muted', text: [item.date, item.source].filter(Boolean).join(' · ') })),
+      labelledField('Problem', item.problem, tokens),
+      labelledField('How it was solved', item.solution, tokens),
+      concepts.length ? el('div', { role: 'list', 'aria-label': 'Concepts used in ' + item.title }, concepts) : null,
+      labelledField('Still unclear', item.gaps, tokens)
+    );
+  }
+
+  function recentFilterGroup(label, values, current, choose) {
+    var chips = values.map(function (value) {
+      var isActive = current === value;
+      return el('button', { type: 'button', 'class': isActive ? 'chip active' : 'chip', 'aria-pressed': isActive ? 'true' : 'false', onclick: function () { choose(isActive ? '' : value); }, text: value });
+    });
+    return el('div', { 'class': 'group', role: 'group', 'aria-label': label }, el('span', { 'class': 'label', text: label }), chips);
+  }
+
+  function clearRecentFilters() {
+    recentQuery = '';
+    understandingFilter = '';
+    kindFilter = '';
+    recentParts.input.value = '';
+    renderRecent(true);
+  }
+
+  function buildRecentControls(root) {
+    var input = el('input', { id: 'recent-search', type: 'search', placeholder: 'Search the work, the concepts, the problem or the solution', 'aria-label': 'Search recent work' });
+    input.addEventListener('input', function () { recentQuery = input.value; renderRecent(false); });
+    var parts = { input: input, filters: el('div', { 'class': 'results' }), summary: el('div', { 'class': 'controls' }), results: el('div', { 'class': 'results', role: 'list', 'aria-label': 'Recent work' }) };
+    replaceChildren(root, [
+      el('div', { 'class': 'card' }, el('h2', { text: 'Recent work' }), input, parts.filters, parts.summary),
+      parts.results
+    ]);
+    return parts;
+  }
+
+  function renderRecent(isForced) {
+    var root = document.getElementById('recent');
+    var statuses = conceptStatusByName();
+    if (!recentParts) recentParts = buildRecentControls(root);
+    var key = JSON.stringify([state.work, statuses, recentQuery, understandingFilter, kindFilter]);
+    if (!isForced && key === shownRecent) return;
+    shownRecent = key;
+    var tokens = queryTokens();
+    var shown = visibleWork(statuses);
+    var isFiltered = recentQuery.trim() !== '' || understandingFilter !== '' || kindFilter !== '';
+    replaceChildren(recentParts.filters, [
+      recentFilterGroup('Understanding', UNDERSTANDING_LEVELS, understandingFilter, function (value) { understandingFilter = value; renderRecent(true); }),
+      recentFilterGroup('Kind', WORK_KINDS, kindFilter, function (value) { kindFilter = value; renderRecent(true); })
+    ]);
+    replaceChildren(recentParts.summary, [
+      el('span', { 'class': 'muted', role: 'status', text: 'Showing ' + shown.length + ' of ' + state.work.length }),
+      isFiltered ? el('button', { type: 'button', onclick: clearRecentFilters }, 'Clear search and filters') : null
+    ]);
+    var empty = state.work.length === 0
+      ? 'No work recorded yet. Claude adds an entry when a piece of work or a walkthrough ends.'
+      : 'Nothing matches. Try fewer words, or clear the filters.';
+    replaceChildren(recentParts.results, shown.length ? shown.map(function (item) { return workCard(item, statuses, tokens); }) : [el('div', { 'class': 'card muted', text: empty })]);
   }
 
   function languageSwitcher(active) {
@@ -460,8 +613,9 @@
 
   function render(isForced) {
     if (!state) return;
-    if (isForced) { shownStats = ''; shownLanguages = ''; shownSettings = ''; }
+    if (isForced) { shownStats = ''; shownLanguages = ''; shownSettings = ''; shownRecent = ''; }
     renderStats();
+    renderRecent(false);
     renderLanguages();
     renderSettings();
   }

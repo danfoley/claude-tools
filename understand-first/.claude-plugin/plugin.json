@@ -1,6 +1,6 @@
 {
   "name": "understand-first",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Changes how Claude works with you: gates that make sure you understand, can explain back, and could rebuild everything without Claude.",
   "author": { "name": "Dan Foley" },
   "license": "MIT",

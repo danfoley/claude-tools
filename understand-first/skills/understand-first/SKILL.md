@@ -24,7 +24,7 @@ The process starts small and grows. The ledger header holds `stage` (1 to 6) and
 5. **Stage 5.** The learner gives a pseudocode outline of the whole change in their own words.
 6. **Stage 6.** The retro at the end of each task. This is the full process.
 
-Always on from stage 1: the event log, ledger upkeep, `/understand-first:menu` stats, inline recall questions, per-concept levels and their tests, the delegation rule, and "skip the gates".
+Always on from stage 1: the event log, the work log, ledger upkeep, `/understand-first:menu` stats, inline recall questions, per-concept levels and their tests, the delegation rule, and "skip the gates".
 
 ### Pace
 
@@ -93,7 +93,7 @@ Do not skip ahead. A gate is active only from the stage that introduces it (see 
    - From stage 4, Claude plays a skeptical architect and asks five questions: why not simpler, what fails, what is untested, what was rejected, what are the known limits.
    - From stage 5, the learner gives a pseudocode outline of the whole change in their own words, as the check that they could rebuild it. They never write the whole change from scratch.
    - The learner's own words from the explanation become the PR description's Problem and What-changes sections. Claude adds Testing and known limitations.
-7. **Retention.** Update the ledger: for each abstract concept the work touched, its status, date, the learner's own one-line explanation of the idea, a recall question, and the new example from this work. When the work applied a concept in a language, add or replace that concept's one `- applied in <Language>: <how it looks in that language, in one line>` line. Make sure the event log has every event from the session. If the ledger header has `stats-mode: dashboard`, refresh the dashboard by following the Publish section of the `/understand-first:menu` command (`commands/menu.md`, in the plugin folder that holds `sources.md`), without asking, and say in one line that it was updated. If publishing fails, say so and carry on; never block the work.
+7. **Retention.** Update the ledger: for each abstract concept the work touched, its status, date, the learner's own one-line explanation of the idea, a recall question, and the new example from this work. When the work applied a concept in a language, add or replace that concept's one `- applied in <Language>: <how it looks in that language, in one line>` line. Add or update this piece of work's entry in the work log (see Work log). Make sure the event log has every event from the session. If the ledger header has `stats-mode: dashboard`, refresh the dashboard by following the Publish section of the `/understand-first:menu` command (`commands/menu.md`, in the plugin folder that holds `sources.md`), without asking, and say in one line that it was updated. If publishing fails, say so and carry on; never block the work.
 
 ## Light gates (mechanical chores)
 
@@ -110,9 +110,36 @@ When the learner asks for help understanding something that already exists, such
 5. **Chunk by chunk.** Show one chunk (file and line), then ask one question: what it does, or a prediction on a case that is not in the code, such as "what happens if this throws here, runs twice, or gets an empty list?". Explain only what they missed, then ask them to say it back. After two failed attempts, explain it fully and ask again. If you notice a possible bug, ask about it as a question before stating it.
 6. **The final check, by stage.** At every stage, the learner explains the whole thing back in their own words, including one prediction on a case they have not seen. From stage 4, add the five skeptical-architect questions (why not simpler, what fails, what is untested, what was rejected, known limits). From stage 5, add a pseudocode outline of the whole change in their own words.
 7. **The verdict.** Say it is understood only when the final check passes. Otherwise name exactly what was missed, mark those concepts shaky, and let the learner choose to continue now or later. A fluent restatement alone never counts.
-8. **Record.** Update the concept ledger as in the retention gate. A walkthrough alone can take a concept to explained, never to solid, because the learner did not use it. Add the PR, commit or file as the example, the `applied in <Language>` line when it shows how the concept looks in a language, and a recall question. Log `walkthrough-start` and `walkthrough-end` (what it was, how many chunks, and understood, partly or stopped) plus the usual recall and gate events.
+8. **Record.** Update the concept ledger as in the retention gate. A walkthrough alone can take a concept to explained, never to solid, because the learner did not use it. Add the PR, commit or file as the example, the `applied in <Language>` line when it shows how the concept looks in a language, and a recall question. Log `walkthrough-start` and `walkthrough-end` (what it was, how many chunks, and understood, partly or stopped) plus the usual recall and gate events. Add or update the work log entry (see Work log).
 
 Asking Claude to explain something is not a delegation. A walkthrough does not edit or review the code; if the learner wants a review or a fix, that is a separate task.
+
+## Work log
+
+Alongside the ledger, Claude keeps `work.md` in the same data directory (its path is in the session-start context): one entry per piece of work, whether it was built together or walked through, so the learner can look back at what was done, how it was solved, which concepts it used and how well they understand it. The viewer's Recent screen and `/understand-first:menu recent` read it, and both are searchable.
+
+Write or update an entry at the end of each piece of work, in the retention gate or at the walkthrough's verdict. If the same item comes back, update its entry instead of adding another. Format:
+
+```
+### PR 449462: bulk messages sent in batch jobs
+- kind: walked through
+- date: 2026-10-27
+- source: PR 449462
+- understanding: partly
+- problem: a retry of the whole send re-emailed people who already got it
+- solution: the parent job only plans; small batch jobs send and mark recipients dispatched
+- concepts:
+  - idempotency: a redelivered batch skips recipients already dispatched
+  - batching: the unit of retry became 50 recipients
+- gaps: what happens when the parent fails while enqueuing batches
+```
+
+- `kind` is `built` or `walked through`. `date` is the day it ended, updated when the item is revisited. `source` is optional: the PR, commit, ticket or file.
+- `understanding` is `understood` when the final check passed (explained back, including a prediction), `partly` when some of it was explained and gaps remain, `not yet` when it was stopped or failed, and `not assessed` when there was no check, for example work recorded afterwards. Never `understood` on a fluent restatement alone.
+- `problem` and `solution` are one line each in plain words, so someone returning later gets the story.
+- `concepts` are the abstract concepts the work used, with the same names as in the concept ledger, each with one line on how it was used in this work. Do not write the concept's own status here: the viewer shows the current status from the ledger, so it changes when the ledger does.
+- `gaps` only when something is still unclear; leave the line out otherwise.
+- Keep an entry to about ten lines, and give it a specific title, because the title is what the learner will search for.
 
 ## Concept ledger
 

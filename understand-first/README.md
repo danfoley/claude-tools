@@ -16,6 +16,11 @@ Each stage adds to the one before. Claude moves you up on its own after at least
 - Stage 5: a pseudocode outline of the whole change in your own words.
 - Stage 6: a retro at the end of each task. This is the full process.
 
+### Recent work
+Claude keeps a work log, `work.md`, next to your ledger: one entry for each piece of work, whether you built it together or asked for a walkthrough of a PR or some code. Each entry has the problem, how it was solved, the concepts it used and how each was used, how well you understood it when it ended (understood, partly, not yet, or not assessed), and anything still unclear. The viewer's Recent screen shows the entries newest first, and each concept shows its current status from your ledger, so it changes when your ledger does. If you later miss a recall question about a concept, every piece of work that used it shows it as shaky again.
+
+You can search it: type words and only the work where every word matches in the title, problem, solution, gaps, or any concept's name, use or current status is kept, with the matches highlighted. Searching "shaky" finds the work that used a concept you are currently shaky on. You can also filter by understanding level and by built or walked through. `/understand-first:menu recent [search words]` prints the same list in the terminal.
+
 ### Understanding work that already exists
 Ask in plain sentences: "help me understand this PR", "walk me through this function", "what does this commit do". Claude runs a walkthrough instead of explaining everything at once. You say what you think it does first. Claude splits it into small chunks, teaches the concepts you are missing with a link, and asks you to explain each chunk back or predict what happens in a case that is not in the code. It ends with you explaining the whole thing back, and it only counts as understood when you can. At stage 4 it adds the architect questions, and at stage 5 a pseudocode outline. What you learn goes into your concept ledger, and a walkthrough alone can take a concept to explained but never to solid.
 

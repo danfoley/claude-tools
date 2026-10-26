@@ -1,6 +1,6 @@
 ---
 description: Show your understand-first stats, change settings, or control the live viewer
-argument-hint: [settings | stats [days] | stage <n> | skip | reset | language <name> | add <language> | dial <language> | viewer on|off|open|stop|status | mode dashboard|terminal | dashboard | page]
+argument-hint: [settings | recent [search words] | stats [days] | stage <n> | skip | reset | language <name> | add <language> | dial <language> | viewer on|off|open|stop|status | mode dashboard|terminal | dashboard | page]
 ---
 
 Show the learner their understand-first stats first; settings are a separate screen. Looking at stats is not a learning event, so the stats views only read data. Changing a setting writes only the ledger header lines (never a concept entry) and appends one line to the event log, and it is always done through the plugin's own script, never by editing the files by hand.
@@ -15,6 +15,7 @@ Script: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/viewer.py"`, called below as `vi
 
 - No argument or `stats [days]`: Stats.
 - `settings`: Settings.
+- `recent [search words]`: Recent.
 - `stage <n>`, `skip`, `reset`, `language <name>`, `add <language>`, `dial <language>`: Change a setting.
 - `viewer on|off|open|stop|status`: Viewer.
 - `mode dashboard`, `mode terminal`, `dashboard`, `page`: the hosted dashboard, which is opt-in. Follow Mode and Publish below.
@@ -30,6 +31,17 @@ Run `viewer.py state` and print a compact plain-text scoreboard from its JSON: n
 - A footer: the live viewer address when it is running (`viewer.py status`), or "viewer off: /understand-first:menu viewer on" when it is not, then "Settings: /understand-first:menu settings".
 
 Say plainly when there is too little data for a number to mean anything.
+
+### Recent
+
+Run `viewer.py state` and print the work log from the `work` list of its JSON as plain text, newest first by `date` (later entries first on a tie). With search words, keep only the items where every word appears, ignoring case, in the title, kind, understanding, date, source, problem, solution, gaps, or any concept's name, use or current status. The current status comes from the `concepts` list by name; a concept that is not in it is "not in ledger". Show up to 8 items. For each one print:
+
+- `date · kind · understanding`, then the title.
+- `Problem:` and `Solved:`, one line each.
+- The concepts as `name (current status): how it was used`.
+- `Unclear:` when there are gaps.
+
+End with "Showing N of M", and say the viewer's Recent screen has the same list with filters. With no work recorded, say so: Claude adds an entry when a piece of work or a walkthrough ends.
 
 ### Settings
 

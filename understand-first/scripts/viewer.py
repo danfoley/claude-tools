@@ -19,6 +19,8 @@ STAGE_COUNT = 6
 MAX_BODY_BYTES = 10_000
 EVENTS_SHOWN = 100
 APPLIED_PREFIX = "- applied in "
+WORK_CONCEPT_PREFIX = "  - "
+WORK_UNDERSTANDING_LEVELS = ("understood", "partly", "not yet")
 LANGUAGE_NAME = re.compile(r"^[A-Za-z0-9 .+#-]{1,40}$")
 DIAL_LINE = re.compile(r"^- (?P<language>.+?): rung (?P<rung>\d+), clean streak (?P<streak>\d+)$")
 SECURITY_HEADERS = {
@@ -129,6 +131,31 @@ def parse_ledger(text):
     return {"header": parse_header(lines), "dial": parse_dial(lines), "concepts": parse_concepts(lines)}
 
 
+def parse_work(text):
+    scalar_fields = {
+        "- kind: ": "kind", "- date: ": "date", "- source: ": "source", "- understanding: ": "understanding",
+        "- problem: ": "problem", "- solution: ": "solution", "- gaps: ": "gaps",
+    }
+    entries = []
+    for line in text.split("\n"):
+        if line.startswith("### "):
+            entries.append({"title": line[4:].strip(), "kind": "", "date": "", "source": "", "understanding": "", "problem": "", "solution": "", "gaps": "", "concepts": []})
+        elif entries and line.startswith(WORK_CONCEPT_PREFIX):
+            name, _, use = line[len(WORK_CONCEPT_PREFIX):].partition(": ")
+            if name.strip():
+                entries[-1]["concepts"].append({"name": name.strip(), "use": use.strip()})
+        elif entries:
+            for prefix, field in scalar_fields.items():
+                if line.startswith(prefix):
+                    entries[-1][field] = line[len(prefix):].strip()
+    return [with_known_understanding(entry) for entry in entries]
+
+
+def with_known_understanding(entry):
+    level = entry["understanding"].lower()
+    return {**entry, "understanding": level if level in WORK_UNDERSTANDING_LEVELS else "not assessed"}
+
+
 def parse_events(text):
     events = []
     for line in text.split("\n"):
@@ -155,6 +182,7 @@ def build_state(directory):
         "statsMode": header.get("stats-mode", "terminal"),
         "dial": ledger["dial"],
         "concepts": ledger["concepts"],
+        "work": parse_work(read_text(directory / "work.md")),
         "eventCount": len(events),
         "events": events[-EVENTS_SHOWN:][::-1],
     }
