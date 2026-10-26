@@ -21,7 +21,7 @@ The process starts small and grows. The ledger header holds `stage` (1 to 6) and
 2. **Stage 2.** The learner explains the change back in their own words before anything is committed, pushed or opened as a PR. If they miss something, Claude teaches the missed concept (gate 2) and asks for the explanation again. The code dial starts.
 3. **Stage 3.** The learner picks the design and retells it as a step-by-step flow (gate 3), predicts each test result before it is run (gate 4), and names the rule and proposes the fix for each review finding before Claude shows its own (gate 5). New or shaky concepts are also taught before the design.
 4. **Stage 4.** At teach-back, Claude asks the five skeptical-architect questions.
-5. **Stage 5.** The learner gives a pseudocode outline of the whole change in their own words.
+5. **Stage 5.** For work being built, the learner gives a pseudocode outline of the whole change in their own words. It is never asked for in a walkthrough or a review, because that code already exists.
 6. **Stage 6.** The retro at the end of each task. This is the full process.
 
 Always on from stage 1: the event log, the work log, ledger upkeep, `/understand-first:menu` stats, inline recall questions, per-concept levels and their tests, the delegation rule, and "skip the gates".
@@ -108,7 +108,7 @@ When the learner asks for help understanding something that already exists, such
 3. **The learner goes first.** Before explaining anything, ask them to say in their own words what they think it does and why it exists. Note the gaps and do not correct them yet.
 4. **Concepts.** Check the ledger. Teach only the concepts it relies on that are new or shaky, from the source map with the link; use solid ones as vocabulary after a one-question spot-check. The learner explains each taught concept back.
 5. **Chunk by chunk.** Show one chunk (file and line), then ask one question: what it does, or a prediction on a case that is not in the code, such as "what happens if this throws here, runs twice, or gets an empty list?". Explain only what they missed, then ask them to say it back. After two failed attempts, explain it fully and ask again. If you notice a possible bug, ask about it as a question before stating it.
-6. **The final check, by stage.** At every stage, the learner explains the whole thing back in their own words, including one prediction on a case they have not seen. From stage 4, add the five skeptical-architect questions (why not simpler, what fails, what is untested, what was rejected, known limits). From stage 5, add a pseudocode outline of the whole change in their own words.
+6. **The final check, by stage.** At every stage, the learner explains the whole thing back in their own words, including one prediction on a case they have not seen. From stage 4, add the five skeptical-architect questions (why not simpler, what fails, what is untested, what was rejected, known limits). Never ask for a pseudocode outline in a walkthrough, at any stage: the code already exists, and the outline is only for work being built.
 7. **The verdict.** Say it is understood only when the final check passes. Otherwise name exactly what was missed, mark those concepts shaky, and let the learner choose to continue now or later. A fluent restatement alone never counts.
 8. **Record.** Update the concept ledger as in the retention gate. A walkthrough alone can take a concept to explained, never to solid, because the learner did not use it. Add the PR, commit or file as the example, the `applied in <Language>` line when it shows how the concept looks in a language, and a recall question. Log `walkthrough-start` and `walkthrough-end` (what it was, how many chunks, and understood, partly or stopped) plus the usual recall and gate events. Add or update the work log entry (see Work log).
 
@@ -116,9 +116,9 @@ Asking Claude to explain something is not a delegation. A walkthrough does not e
 
 ## Review of existing code
 
-When the learner has Claude review a PR or code that already exists ("review this PR", "do a code review", "have Claude review this"), run a review. A review is a walkthrough followed by judgment, kept inside the learner's stage. The code is already written, so the learner is never asked for the pseudocode outline in a review, at any stage.
+When the learner has Claude review a PR or code that already exists ("review this PR", "do a code review", "have Claude review this"), run a review. A review is a walkthrough followed by judgment, kept inside the learner's stage. The code is already written, so, as in any walkthrough, the learner is never asked for the pseudocode outline in a review, at any stage.
 
-1. **Understand it first.** Run the walkthrough steps 1 to 7 with one change to step 6: no pseudocode outline at any stage. If the work log already has an entry for this exact item with understanding `understood`, or it was built together in this session and passed its teach-back, skip the teaching and ask one recall question per concept before moving on.
+1. **Understand it first.** Run the walkthrough steps 1 to 7. If the work log already has an entry for this exact item with understanding `understood`, or it was built together in this session and passed its teach-back, skip the teaching and ask one recall question per concept before moving on.
 2. **The learner judges first, by stage.**
    - Stages 1 and 2: after the walkthrough, ask what they would flag in their own words, then add what Claude sees.
    - From stage 3: for each chunk, the learner proposes their review comments before any finding is shown: what is wrong, risky, unclear or untested, and the rule behind it. Then compare, saying what they caught, what they missed and why it matters.
