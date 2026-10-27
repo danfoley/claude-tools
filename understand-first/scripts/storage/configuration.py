@@ -1,75 +1,86 @@
+from __future__ import annotations
+
 import json
 import os
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .discovery import discover_backends
+from .backend import StorageBackend
+from .discovery import Discovered, discover_backends
+from .local_folder import LocalFolder
+from .push_lock import Clock
 from .sync import Sync
 
 CONFIGURATION_FILE = "config.json"
 BACKENDS_DIRECTORY = Path(__file__).resolve().parent / "backends"
 
 
-class BackendUnavailable(Exception):
+class BackendUnavailableError(Exception):
     pass
 
 
 @dataclass
 class StorageConfiguration:
     backend: str
-    settings: dict = field(default_factory=dict)
+    settings: dict[str, str] = field(default_factory=dict)
 
 
-def data_directory():
+def data_directory() -> Path:
     configured = os.environ.get("UNDERSTAND_FIRST_DATA")
     return Path(configured) if configured else Path.home() / ".claude" / "understand-first"
 
 
-def sync_directory(data_dir):
+def sync_directory(data_dir: Path) -> Path:
     return data_dir / "sync"
 
 
-def load_configuration(directory):
-    try:
-        stored = json.loads((directory / CONFIGURATION_FILE).read_text())
-    except FileNotFoundError:
+def load_configuration(directory: Path) -> StorageConfiguration | None:
+    stored = LocalFolder(directory).get(CONFIGURATION_FILE)
+    if stored is None:
         return None
-    return StorageConfiguration(stored["backend"], stored.get("settings", {}))
+    try:
+        parsed = json.loads(stored)
+        return StorageConfiguration(parsed["backend"], parsed.get("settings", {}))
+    except (ValueError, KeyError, TypeError, AttributeError) as error:
+        raise BackendUnavailableError(
+            f"The storage settings file is damaged ({error!r}). Run sync.py disable to start again."
+        ) from error
 
 
-def save_configuration(directory, configuration):
-    directory.mkdir(parents=True, exist_ok=True)
+def save_configuration(directory: Path, configuration: StorageConfiguration) -> None:
     stored = {"backend": configuration.backend, "settings": configuration.settings}
-    (directory / CONFIGURATION_FILE).write_text(json.dumps(stored, indent=2))
+    LocalFolder(directory).put(CONFIGURATION_FILE, json.dumps(stored, indent=2))
 
 
-def remove_configuration(directory):
+def remove_configuration(directory: Path) -> None:
     (directory / CONFIGURATION_FILE).unlink(missing_ok=True)
 
 
-def build_backend(configuration, discovered):
+def build_backend(configuration: StorageConfiguration, discovered: Discovered) -> StorageBackend:
     backend_class = installed_backend(configuration.backend, discovered)
     declared = {setting.key: setting.default for setting in backend_class.settings}
     undeclared = sorted(set(configuration.settings) - set(declared))
     if undeclared:
-        raise BackendUnavailable(f"Backend {configuration.backend!r} has no setting named {', '.join(undeclared)}")
+        raise BackendUnavailableError(f"Backend {configuration.backend!r} has no setting named {', '.join(undeclared)}")
+    create_backend: Callable[..., StorageBackend] = backend_class
     try:
-        return backend_class(**{**declared, **configuration.settings})
+        return create_backend(**{**declared, **configuration.settings})
     except Exception as error:
-        raise BackendUnavailable(f"Backend {configuration.backend!r} could not start: {error}") from error
+        raise BackendUnavailableError(f"Backend {configuration.backend!r} could not start: {error}") from error
 
 
-def installed_backend(name, discovered):
+def installed_backend(name: str, discovered: Discovered) -> type[StorageBackend]:
     if name in discovered.backends:
         return discovered.backends[name]
     if name in discovered.failures:
-        raise BackendUnavailable(f"Backend {name!r} failed to load: {discovered.failures[name]}")
+        raise BackendUnavailableError(f"Backend {name!r} failed to load: {discovered.failures[name]}")
     available = ", ".join(sorted(discovered.backends)) or "none"
-    raise BackendUnavailable(f"Backend {name!r} is not installed. Installed backends: {available}")
+    raise BackendUnavailableError(f"Backend {name!r} is not installed. Installed backends: {available}")
 
 
-def sync_from_configuration(data_dir, clock=time.time):
+def sync_from_configuration(data_dir: Path, clock: Clock = time.time) -> Sync | None:
     configuration = load_configuration(sync_directory(data_dir))
     if configuration is None:
         return None

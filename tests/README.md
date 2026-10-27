@@ -9,6 +9,9 @@ Tests for the plugins in this marketplace. They live outside the plugin folders,
 Both start their own viewer on a spare port against a temporary data folder, so a real ledger is never touched.
 
 ### Run them
-- Unit tests, which need only `python3`: `python3 -m unittest discover -s tests`
+- Unit tests, which need only `python3`, from the repository root: `PYTHONPATH=understand-first/scripts python3 -m unittest discover -s tests`
 - Browser test, from this folder: `npm install`, then `npx playwright install chromium` the first time, then `npx playwright test`
 - Both: `npm test`
+
+### Lint them
+`pip install -r ../requirements-dev.txt`, then `npm run lint` from this folder. It runs ruff and mypy (strict) on the Python, ESLint on the JavaScript and TypeScript, the HTML validator on the two pages, and `tsc` in strict mode on the browser tests. No rule is disabled anywhere, and none may be: fix the code instead.

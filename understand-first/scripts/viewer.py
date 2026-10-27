@@ -13,7 +13,7 @@ from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from storage import BackendUnavailable
+from storage import BackendUnavailableError
 from storage.management import configure_storage, disable_storage, storage_overview, sync_now
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[1]
@@ -38,7 +38,7 @@ SECURITY_HEADERS = {
 }
 
 
-class Refusal(Exception):
+class RefusalError(Exception):
     pass
 
 
@@ -70,7 +70,7 @@ def read_text(path):
 def write_atomically(path, text):
     temporary = path.with_name(path.name + ".tmp")
     temporary.write_text(text)
-    os.replace(temporary, path)
+    temporary.replace(path)
 
 
 def as_int(value, fallback=0):
@@ -115,7 +115,10 @@ def parse_concepts(lines):
     concepts = []
     for line in lines:
         if line.startswith("### "):
-            concepts.append({"name": line[4:].strip(), "status": "", "verified": "", "words": "", "recall": "", "examples": 0, "exampleNotes": [], "applied": {}})
+            concepts.append({
+                "name": line[4:].strip(), "status": "", "verified": "", "words": "", "recall": "",
+                "examples": 0, "exampleNotes": [], "applied": {},
+            })
         elif concepts and line.startswith("  - "):
             concepts[-1]["examples"] += 1
             concepts[-1]["exampleNotes"].append(line[len("  - "):].strip())
@@ -143,7 +146,10 @@ def parse_work(text):
     entries = []
     for line in text.split("\n"):
         if line.startswith("### "):
-            entries.append({"title": line[4:].strip(), "kind": "", "date": "", "source": "", "understanding": "", "problem": "", "solution": "", "gaps": "", "concepts": []})
+            entries.append({
+                "title": line[4:].strip(), "kind": "", "date": "", "source": "", "understanding": "",
+                "problem": "", "solution": "", "gaps": "", "concepts": [],
+            })
         elif entries and line.startswith(WORK_CONCEPT_PREFIX):
             name, _, use = line[len(WORK_CONCEPT_PREFIX):].partition(": ")
             if name.strip():
@@ -232,10 +238,10 @@ def with_lowered_rung(text, language):
     lines = text.split("\n")
     index = dial_line_index(lines, language)
     if index is None:
-        raise Refusal(f"{language} is not in the code dial.")
+        raise RefusalError(f"{language} is not in the code dial.")
     rung = int(DIAL_LINE.match(lines[index])["rung"])
     if rung <= 1:
-        raise Refusal(f"{language} is already at rung 1.")
+        raise RefusalError(f"{language} is already at rung 1.")
     lines[index] = f"- {language}: rung {rung - 1}, clean streak 0"
     return "\n".join(lines)
 
@@ -246,14 +252,14 @@ def with_language(text, language):
         return text
     last = last_dial_line_index(lines)
     if last is None:
-        raise Refusal("The ledger has no code dial section.")
+        raise RefusalError("The ledger has no code dial section.")
     lines.insert(last + 1, f"- {language}: rung 1, clean streak 0")
     return "\n".join(lines)
 
 
 def valid_language(name):
     if not isinstance(name, str) or not LANGUAGE_NAME.match(name.strip()):
-        raise Refusal("A language name is 1 to 40 letters, digits, spaces or . + # -")
+        raise RefusalError("A language name is 1 to 40 letters, digits, spaces or . + # -")
     return name.strip()
 
 
@@ -277,7 +283,7 @@ def log_event(directory, event, reason, note, language=""):
 def load_ledger_text(directory):
     text = read_text(directory / "ledger.md")
     if not text:
-        raise Refusal("There is no ledger yet. The first session creates it.")
+        raise RefusalError("There is no ledger yet. The first session creates it.")
     return text
 
 
@@ -293,7 +299,7 @@ def stage_down(directory, request):
     current = as_int(parse_header(load_ledger_text(directory).split("\n")).get("stage"))
     target = as_int(request.get("to"), current - 1)
     if not 1 <= target < current:
-        raise Refusal(f"Stage {current} can only go back to a lower stage, 1 to {current - 1}.")
+        raise RefusalError(f"Stage {current} can only go back to a lower stage, 1 to {current - 1}.")
     change_stage(directory, target)
     log_event(directory, "stage-down", "learner request via the viewer", f"stage {current} to {target}")
     return f"Stage {current} to {target}."
@@ -301,7 +307,7 @@ def stage_down(directory, request):
 
 def reset_stage(directory, request):
     if request.get("confirm") is not True:
-        raise Refusal("Resetting needs confirmation.")
+        raise RefusalError("Resetting needs confirmation.")
     current = change_stage(directory, 1)
     log_event(directory, "stage-down", "reset via the viewer", f"stage {current} to 1")
     return "Back to stage 1."
@@ -346,19 +352,25 @@ def stats_mode_dashboard(directory, request):
 
 def skip_gates(directory, request):
     log_event(directory, "gates-skipped", "learner request via the viewer", "skip the gates for the next task")
-    return "Noted. Claude will skip the gates for the next task and record it as skipped in the work log, so you can go back to it."
+    return (
+        "Noted. Claude will skip the gates for the next task and record it as skipped in the work log, "
+        "so you can go back to it."
+    )
 
 
 def storage_configure(directory, request):
     backend = request.get("backend")
     if not isinstance(backend, str):
-        raise Refusal("Choose a storage backend.")
+        raise RefusalError("Choose a storage backend.")
     try:
         configure_storage(directory, backend, request.get("settings", {}))
-    except BackendUnavailable as problem:
-        raise Refusal(str(problem))
+    except BackendUnavailableError as problem:
+        raise RefusalError(str(problem)) from problem
     log_event(directory, "setting-changed", "learner request via the viewer", f"storage backend {backend}")
-    return f"Storage is now {backend}. Your files are copied there at your next prompt. Press Sync now to bring its files to this computer."
+    return (
+        f"Storage is now {backend}. Your files are copied there at your next prompt. "
+        "Press Sync now to bring its files to this computer."
+    )
 
 
 def storage_disable(directory, request):
@@ -370,10 +382,10 @@ def storage_disable(directory, request):
 def storage_sync_now(directory, request):
     try:
         sync_now(directory)
-    except BackendUnavailable as problem:
-        raise Refusal(str(problem))
+    except BackendUnavailableError as problem:
+        raise RefusalError(str(problem)) from problem
     except Exception as problem:
-        raise Refusal(f"Could not reach the storage backend: {problem}")
+        raise RefusalError(f"Could not reach the storage backend: {problem}") from problem
     return "Synced. Files from the backend are now on this computer."
 
 
@@ -397,9 +409,11 @@ def apply_action(directory, request, from_page=False):
     name = request.get("action")
     handler = ACTIONS.get(name)
     if handler is None:
-        raise Refusal("Unknown action.")
+        raise RefusalError("Unknown action.")
     if from_page and name in COMMAND_LINE_ONLY:
-        raise Refusal("Publishing to a hosted page needs your consent in Claude Code: run /understand-first:menu mode dashboard.")
+        raise RefusalError(
+            "Publishing to a hosted page needs your consent in Claude Code: run /understand-first:menu mode dashboard."
+        )
     return handler(directory, request)
 
 
@@ -422,24 +436,29 @@ class ViewerHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if not self.host_is_allowed():
-            return self.send_json(403, {"ok": False, "message": "Host not allowed."})
+            self.send_json(403, {"ok": False, "message": "Host not allowed."})
+            return
         routes = {"/": self.send_page, "/api/state": self.send_state, "/api/health": self.send_health}
         route = routes.get(self.path.split("?")[0])
         if route is None:
-            return self.send_json(404, {"ok": False, "message": "Not found."})
+            self.send_json(404, {"ok": False, "message": "Not found."})
+            return
         route()
 
     def do_POST(self):
         if self.path != "/api/action":
-            return self.send_json(404, {"ok": False, "message": "Not found."})
+            self.send_json(404, {"ok": False, "message": "Not found."})
+            return
         refusal = self.refusal_for_untrusted_request()
         if refusal:
-            return self.send_json(403, {"ok": False, "message": refusal})
+            self.send_json(403, {"ok": False, "message": refusal})
+            return
         try:
             request = self.read_json_body()
             message = apply_action(self.server.directory, request, from_page=True)
-        except Refusal as refusal_reason:
-            return self.send_json(400, {"ok": False, "message": str(refusal_reason)})
+        except RefusalError as refusal_reason:
+            self.send_json(400, {"ok": False, "message": str(refusal_reason)})
+            return
         self.send_json(200, {"ok": True, "message": message, "state": build_state(self.server.directory)})
 
     def host_is_allowed(self):
@@ -462,13 +481,13 @@ class ViewerHandler(BaseHTTPRequestHandler):
     def read_json_body(self):
         length = as_int(self.headers.get("Content-Length"))
         if not 0 < length <= MAX_BODY_BYTES:
-            raise Refusal("The request body is missing or too large.")
+            raise RefusalError("The request body is missing or too large.")
         try:
             request = json.loads(self.rfile.read(length))
-        except json.JSONDecodeError:
-            raise Refusal("The request is not valid JSON.")
+        except json.JSONDecodeError as error:
+            raise RefusalError("The request is not valid JSON.") from error
         if not isinstance(request, dict):
-            raise Refusal("The request must be a JSON object.")
+            raise RefusalError("The request must be a JSON object.")
         return request
 
     def send_page(self):
@@ -535,7 +554,7 @@ def wait_until_healthy(port, seconds):
 def start_detached():
     directory = data_dir()
     directory.mkdir(parents=True, exist_ok=True)
-    with open(directory / "viewer.log", "ab") as log:
+    with (directory / "viewer.log").open("ab") as log:
         subprocess.Popen(
             [sys.executable, str(Path(__file__).resolve()), "serve"],
             stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True, close_fds=True,
@@ -579,7 +598,7 @@ def command_act(arguments):
     try:
         request = json.loads(arguments[0])
         if not isinstance(request, dict):
-            raise Refusal("The request must be a JSON object.")
+            raise RefusalError("The request must be a JSON object.")
         print(apply_action(data_dir(), request))
     except IndexError:
         print("Usage: viewer.py act '{\"action\": \"stage-down\"}'", file=sys.stderr)
@@ -587,7 +606,7 @@ def command_act(arguments):
     except json.JSONDecodeError:
         print("The request is not valid JSON.", file=sys.stderr)
         return 2
-    except Refusal as refusal:
+    except RefusalError as refusal:
         print(refusal, file=sys.stderr)
         return 1
     return 0

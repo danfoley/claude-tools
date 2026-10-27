@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -152,12 +152,12 @@
   var selectedLanguage = savedLanguage();
 
   function savedLanguage() {
-    try { return localStorage.getItem(LANGUAGE_KEY) || ''; } catch (error) { return ''; }
+    try { return localStorage.getItem(LANGUAGE_KEY) || ''; } catch { return ''; }
   }
 
   function setSelectedLanguage(name) {
     selectedLanguage = name;
-    try { localStorage.setItem(LANGUAGE_KEY, name); } catch (error) { selectedLanguage = name; }
+    try { localStorage.setItem(LANGUAGE_KEY, name); } catch { selectedLanguage = name; }
     render(true);
   }
 
@@ -168,12 +168,12 @@
   }
 
   function savedStatusFilter() {
-    try { return localStorage.getItem(FILTER_KEY) || ''; } catch (error) { return ''; }
+    try { return localStorage.getItem(FILTER_KEY) || ''; } catch { return ''; }
   }
 
   function setStatusFilter(status) {
     statusFilter = status;
-    try { localStorage.setItem(FILTER_KEY, status); } catch (error) { statusFilter = status; }
+    try { localStorage.setItem(FILTER_KEY, status); } catch { statusFilter = status; }
     render(true);
   }
 
@@ -754,7 +754,7 @@
     var id = 'storage-setting-' + setting.key;
     return el('div', { 'class': 'controls' },
       el('label', { 'for': id, text: setting.label }),
-      el('input', { id: id, type: 'text', value: value, size: '44' })
+      el('input', { id: id, name: setting.key, type: 'text', value: value, size: '44', autocomplete: 'off', spellcheck: 'false' })
     );
   }
 
@@ -770,39 +770,65 @@
       : 'Your data is only on this computer. If it is lost, so is your history.';
   }
 
-  function storageSettings() {
-    var storage = state.storage;
-    var configured = storage.configured;
+  function storageNotices(storage) {
     var notices = Object.keys(storage.failures).map(function (name) {
       return el('div', { 'class': 'muted', text: 'Could not load the "' + name + '" backend: ' + storage.failures[name] });
     });
     if (storage.lastError) notices.push(el('div', { 'class': 'muted', text: 'Last sync problem: ' + storage.lastError }));
-    if (!storage.backends.length) {
-      return el('div', { 'class': 'card', id: 'storage' }, el('h2', { text: 'Storage' }), el('div', { text: storageSummary(null) }), notices);
-    }
+    return notices;
+  }
+
+  function storageFields(backend, configured) {
+    var saved = configured && configured.backend === backend.name ? configured.settings : {};
+    return backend.settings.map(function (setting) {
+      return storageField(setting, saved[setting.key] !== undefined ? saved[setting.key] : setting.default);
+    });
+  }
+
+  function backendPicker(storage) {
     var picker = el('select', { id: 'storage-backend', 'aria-label': 'Storage backend' },
       storage.backends.map(function (backend) { return el('option', { value: backend.name, text: backend.name }); }));
-    picker.value = configured ? configured.backend : storage.backends[0].name;
+    picker.value = storage.configured ? storage.configured.backend : storage.backends[0].name;
+    return picker;
+  }
+
+  function postWhileBusy(button, busyLabel, body) {
+    var label = button.textContent;
+    button.disabled = true;
+    button.textContent = busyLabel;
+    return post(body).then(function () { button.disabled = false; button.textContent = label; });
+  }
+
+  function storageButtons(picker, configured) {
+    var save = el('button', {
+      onclick: function (event) {
+        postWhileBusy(event.currentTarget, 'Saving…', { action: 'storage-configure', backend: picker.value, settings: enteredStorageSettings(backendNamed(picker.value)) });
+      }
+    }, configured ? 'Save changes' : 'Save and use');
+    var syncNow = configured ? el('button', {
+      onclick: function (event) { postWhileBusy(event.currentTarget, 'Syncing…', { action: 'storage-sync-now' }); }
+    }, 'Sync now') : null;
+    var stop = configured ? el('button', { onclick: function () { post({ action: 'storage-disable' }); } }, 'Use local storage only') : null;
+    return el('div', { 'class': 'controls' }, save, syncNow, stop);
+  }
+
+  function storageSettings() {
+    var storage = state.storage;
+    var heading = el('h2', { text: 'Storage' });
+    var summary = el('div', { id: 'storage-summary', text: storageSummary(storage.configured) });
+    if (!storage.backends.length) return el('div', { 'class': 'card', id: 'storage' }, heading, summary, storageNotices(storage));
+    var picker = backendPicker(storage);
     var fields = el('div');
-    function showFields() {
-      var backend = backendNamed(picker.value);
-      var saved = configured && configured.backend === backend.name ? configured.settings : {};
-      replaceChildren(fields, backend.settings.map(function (setting) {
-        return storageField(setting, saved[setting.key] !== undefined ? saved[setting.key] : setting.default);
-      }));
-    }
+    function showFields() { replaceChildren(fields, storageFields(backendNamed(picker.value), storage.configured)); }
     picker.addEventListener('change', showFields);
     showFields();
     return el('div', { 'class': 'card', id: 'storage' },
-      el('h2', { text: 'Storage' }),
-      el('div', { id: 'storage-summary', text: storageSummary(configured) }),
+      heading,
+      summary,
       el('div', { 'class': 'controls' }, el('label', { 'for': 'storage-backend', text: 'Backend' }), picker),
       fields,
-      el('div', { 'class': 'controls' },
-        el('button', { onclick: function () { post({ action: 'storage-configure', backend: picker.value, settings: enteredStorageSettings(backendNamed(picker.value)) }); } }, configured ? 'Save changes' : 'Save and use'),
-        configured ? el('button', { onclick: function () { post({ action: 'storage-sync-now' }); } }, 'Sync now') : null,
-        configured ? el('button', { onclick: function () { post({ action: 'storage-disable' }); } }, 'Use local storage only') : null),
-      notices
+      storageButtons(picker, storage.configured),
+      storageNotices(storage)
     );
   }
 

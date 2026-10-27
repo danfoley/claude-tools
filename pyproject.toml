@@ -1,0 +1,15 @@
+[tool.ruff]
+target-version = "py39"
+line-length = 120
+src = ["understand-first/scripts", "tests"]
+extend-exclude = ["tests/node_modules"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "C4", "UP", "SIM", "N", "RET", "PTH", "PLR", "RUF"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+files = ["understand-first/scripts/storage", "understand-first/scripts/sync.py"]
+explicit_package_bases = true
+mypy_path = "understand-first/scripts"

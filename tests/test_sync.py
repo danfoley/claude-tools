@@ -1,14 +1,11 @@
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "understand-first" / "scripts"))
-
-from storage import PushLock, StorageBackend, Sync
+from storage import PushLock, StorageBackend, Sync, SyncSchedule
 
 
-class BackendDown(Exception):
+class BackendDownError(Exception):
     pass
 
 
@@ -31,7 +28,7 @@ class MemoryBackend(StorageBackend):
 
     def fail_when_down(self):
         if self.down:
-            raise BackendDown("the backend is down")
+            raise BackendDownError("the backend is down")
 
 
 class FakeClock:
@@ -50,6 +47,7 @@ class Computer:
         self.state = Path(folders.name) / "state"
         self.data.mkdir()
         self.sync = Sync(self.data, self.state, backend, clock)
+        self.schedule = SyncSchedule(self.sync)
 
     def write(self, name, text):
         (self.data / name).write_text(text)
@@ -100,7 +98,7 @@ class PushTest(SyncTestCase):
     def test_a_failed_push_is_retried_on_the_next_push(self):
         self.laptop.write("ledger.md", "stage: 1\n")
         self.backend.down = True
-        with self.assertRaises(BackendDown):
+        with self.assertRaises(BackendDownError):
             self.laptop.sync.push()
         self.backend.down = False
         self.laptop.sync.push()
@@ -223,68 +221,68 @@ class TickTest(SyncTestCase):
 
     def test_the_first_tick_pushes_pending_changes(self):
         self.laptop.write("ledger.md", "stage: 1\n")
-        self.laptop.sync.tick()
+        self.laptop.schedule.tick()
         self.assertEqual(self.backend.files["ledger.md"], "stage: 1\n")
 
     def test_a_tick_soon_after_a_push_does_not_push_again(self):
-        self.laptop.sync.tick()
+        self.laptop.schedule.tick()
         self.laptop.write("ledger.md", "stage: 1\n")
         self.clock.now += self.PUSH_INTERVAL - 1
-        self.laptop.sync.tick()
+        self.laptop.schedule.tick()
         self.assertEqual(self.backend.puts, [])
 
     def test_a_tick_after_the_push_interval_pushes_new_changes(self):
-        self.laptop.sync.tick()
+        self.laptop.schedule.tick()
         self.laptop.write("ledger.md", "stage: 1\n")
         self.clock.now += self.PUSH_INTERVAL
-        self.laptop.sync.tick()
+        self.laptop.schedule.tick()
         self.assertEqual(self.backend.files["ledger.md"], "stage: 1\n")
 
     def test_an_active_session_does_not_pull(self):
-        self.laptop.sync.tick()
+        self.laptop.schedule.tick()
         self.backend.files["ledger.md"] = "stage: 9 from the other laptop\n"
         self.clock.now += self.PUSH_INTERVAL
-        self.laptop.sync.tick()
+        self.laptop.schedule.tick()
         self.assertIsNone(self.laptop.read("ledger.md"))
 
     def test_coming_back_after_an_idle_stretch_pulls_first(self):
-        self.laptop.sync.tick()
+        self.laptop.schedule.tick()
         self.backend.files["ledger.md"] = "stage: 9 from the other laptop\n"
         self.clock.now += self.IDLE_BEFORE_PULL
-        self.laptop.sync.tick()
+        self.laptop.schedule.tick()
         self.assertEqual(self.laptop.read("ledger.md"), "stage: 9 from the other laptop\n")
 
     def test_idle_time_is_measured_from_the_last_tick_not_the_last_pull(self):
-        self.laptop.sync.tick()
+        self.laptop.schedule.tick()
         self.clock.now += self.IDLE_BEFORE_PULL - 1
-        self.laptop.sync.tick()
+        self.laptop.schedule.tick()
         self.clock.now += self.IDLE_BEFORE_PULL - 1
         self.backend.files["ledger.md"] = "stage: 9 from the other laptop\n"
-        self.laptop.sync.tick()
+        self.laptop.schedule.tick()
         self.assertIsNone(self.laptop.read("ledger.md"))
 
     def test_a_failed_push_is_not_retried_until_the_interval_has_passed(self):
         self.backend.down = True
         self.laptop.write("ledger.md", "stage: 1\n")
-        with self.assertRaises(BackendDown):
-            self.laptop.sync.tick()
+        with self.assertRaises(BackendDownError):
+            self.laptop.schedule.tick()
         self.clock.now += 60
-        self.laptop.sync.tick()
+        self.laptop.schedule.tick()
         self.backend.down = False
         self.clock.now += self.PUSH_INTERVAL
-        self.laptop.sync.tick()
+        self.laptop.schedule.tick()
         self.assertEqual(self.backend.files["ledger.md"], "stage: 1\n")
 
     def test_a_failure_is_remembered_until_a_later_tick_succeeds(self):
         self.backend.down = True
         self.laptop.write("ledger.md", "stage: 1\n")
-        with self.assertRaises(BackendDown):
-            self.laptop.sync.tick()
-        self.assertIn("the backend is down", self.laptop.sync.last_error())
+        with self.assertRaises(BackendDownError):
+            self.laptop.schedule.tick()
+        self.assertIn("the backend is down", self.laptop.schedule.last_error)
         self.backend.down = False
         self.clock.now += self.PUSH_INTERVAL
-        self.laptop.sync.tick()
-        self.assertIsNone(self.laptop.sync.last_error())
+        self.laptop.schedule.tick()
+        self.assertIsNone(self.laptop.schedule.last_error)
 
 
 class PushLockTest(SyncTestCase):
@@ -331,7 +329,7 @@ class PushLockTest(SyncTestCase):
     def test_the_lock_is_released_after_a_failed_push(self):
         self.laptop.write("ledger.md", "stage: 1\n")
         self.backend.down = True
-        with self.assertRaises(BackendDown):
+        with self.assertRaises(BackendDownError):
             self.laptop.sync.push()
         self.assertTrue(self.lock().acquire())
 

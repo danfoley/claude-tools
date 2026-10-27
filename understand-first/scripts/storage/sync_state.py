@@ -1,46 +1,77 @@
+from __future__ import annotations
+
 import hashlib
 import json
-import os
+from pathlib import Path
+from typing import Any
+
+from .local_folder import LocalFolder
+
+STATE_FILE = "sync-state.json"
 
 
-def hash_of(text):
+def hash_of(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()
 
 
 class SyncState:
-    def __init__(self, path):
-        self.path = path
-        self.recorded = self.load()
+    def __init__(self, directory: Path) -> None:
+        self.folder = LocalFolder(directory)
+        self.recorded: dict[str, Any] = self.load()
 
-    def hash_of_last_sync(self, name):
-        return self.recorded["hashes"].get(name)
+    def hash_of_last_sync(self, name: str) -> str | None:
+        last_hash: str | None = self.recorded["hashes"].get(name)
+        return last_hash
 
-    def record_hash(self, name, text):
+    def record_hash(self, name: str, text: str) -> None:
         self.recorded["hashes"][name] = hash_of(text)
         self.save()
 
-    def events_cursor(self):
-        return self.recorded["events_cursor"]
+    @property
+    def events_cursor(self) -> int:
+        cursor: int = self.recorded["events_cursor"]
+        return cursor
 
-    def record_events_cursor(self, cursor):
-        self.recorded["events_cursor"] = cursor
-        self.save()
+    @events_cursor.setter
+    def events_cursor(self, cursor: int) -> None:
+        self.record("events_cursor", cursor)
 
-    def value(self, key):
-        return self.recorded.get(key)
+    @property
+    def last_activity(self) -> float | None:
+        moment: float | None = self.recorded.get("last_activity")
+        return moment
 
-    def record_value(self, key, value):
+    @last_activity.setter
+    def last_activity(self, moment: float) -> None:
+        self.record("last_activity", moment)
+
+    @property
+    def last_push_attempt(self) -> float | None:
+        moment: float | None = self.recorded.get("last_push_attempt")
+        return moment
+
+    @last_push_attempt.setter
+    def last_push_attempt(self, moment: float) -> None:
+        self.record("last_push_attempt", moment)
+
+    @property
+    def last_error(self) -> str | None:
+        problem: str | None = self.recorded.get("last_error")
+        return problem
+
+    @last_error.setter
+    def last_error(self, problem: str | None) -> None:
+        self.record("last_error", problem)
+
+    def record(self, key: str, value: Any) -> None:
         self.recorded[key] = value
         self.save()
 
-    def load(self):
+    def load(self) -> dict[str, Any]:
         try:
-            return json.loads(self.path.read_text())
-        except (FileNotFoundError, ValueError):
+            return {"hashes": {}, "events_cursor": 0, **json.loads(self.folder.get(STATE_FILE) or "")}
+        except (ValueError, TypeError):
             return {"hashes": {}, "events_cursor": 0}
 
-    def save(self):
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = self.path.with_name(self.path.name + ".tmp")
-        temporary.write_text(json.dumps(self.recorded))
-        os.replace(temporary, self.path)
+    def save(self) -> None:
+        self.folder.put(STATE_FILE, json.dumps(self.recorded))

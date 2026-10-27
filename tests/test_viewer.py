@@ -1,14 +1,11 @@
 import http.client
 import json
 import os
-import sys
 import tempfile
 import threading
 import unittest
 import unittest.mock
 from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "understand-first" / "scripts"))
 
 import viewer
 
@@ -121,10 +118,15 @@ class ViewerTest(unittest.TestCase):
     def test_state_includes_each_piece_of_work_with_its_concepts(self):
         _, text = self.request("GET", "/api/state")
         work = json.loads(text)["work"]
-        self.assertEqual([item["title"] for item in work], ["PR 449462: bulk messages sent in batch jobs", "Renew the wildcard certificate"])
+        titles = ["PR 449462: bulk messages sent in batch jobs", "Renew the wildcard certificate"]
+        self.assertEqual([item["title"] for item in work], titles)
         first = work[0]
-        self.assertEqual((first["kind"], first["date"], first["understanding"]), ("walked through", "2026-10-27", "partly"))
-        self.assertEqual(first["solution"], "the parent job only plans; small batch jobs send and mark recipients dispatched")
+        self.assertEqual(
+            (first["kind"], first["date"], first["understanding"]), ("walked through", "2026-10-27", "partly")
+        )
+        self.assertEqual(
+            first["solution"], "the parent job only plans; small batch jobs send and mark recipients dispatched"
+        )
         self.assertEqual(first["gaps"], "what happens when the parent fails while enqueuing batches")
         self.assertEqual(first["concepts"], [
             {"name": "idempotency", "use": "a redelivered batch skips recipients already dispatched"},
@@ -136,7 +138,10 @@ class ViewerTest(unittest.TestCase):
         self.assertEqual(json.loads(text)["work"][1]["understanding"], "not assessed")
 
     def test_work_skipped_on_override_keeps_its_skipped_level(self):
-        skipped = "\n### Hurried change\n- kind: built\n- date: 2026-10-28\n- understanding: skipped\n- gaps: skipped on override: in a hurry\n"
+        skipped = (
+            "\n### Hurried change\n- kind: built\n- date: 2026-10-28\n- understanding: skipped\n"
+            "- gaps: skipped on override: in a hurry\n"
+        )
         (self.directory / "work.md").write_text(WORK + skipped)
         _, text = self.request("GET", "/api/state")
         last = json.loads(text)["work"][-1]
@@ -196,7 +201,10 @@ class ViewerTest(unittest.TestCase):
         self.act({"action": "dial-down", "language": "PHP"})
         self.act({"action": "add-language", "language": "Rust"})
         logged = self.logged_events()
-        self.assertEqual([(event["event"], event["language"]) for event in logged[-2:]], [("dial-down", "PHP"), ("setting-changed", "Rust")])
+        self.assertEqual(
+            [(event["event"], event["language"]) for event in logged[-2:]],
+            [("dial-down", "PHP"), ("setting-changed", "Rust")],
+        )
 
     def test_the_concepts_do_not_change_when_a_language_is_added(self):
         before = json.loads(self.request("GET", "/api/state")[1])["concepts"]
@@ -250,9 +258,10 @@ class ViewerTest(unittest.TestCase):
 
     def test_choosing_a_storage_backend_saves_it_and_logs_it(self):
         cloud = self.make_cloud_folder()
-        status, result = self.act({"action": "storage-configure", "backend": "folder", "settings": {"directory": str(cloud)}})
+        choice = {"backend": "folder", "settings": {"directory": str(cloud)}}
+        status, result = self.act({"action": "storage-configure", **choice})
         self.assertEqual(status, 200)
-        self.assertEqual(result["state"]["storage"]["configured"], {"backend": "folder", "settings": {"directory": str(cloud)}})
+        self.assertEqual(result["state"]["storage"]["configured"], choice)
         self.assertEqual(self.logged_events()[-1]["event"], "setting-changed")
         self.assertIn("folder", self.logged_events()[-1]["note"])
 

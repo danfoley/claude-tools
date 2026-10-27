@@ -1,11 +1,8 @@
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "understand-first" / "scripts"))
-
-from storage import BackendUnavailable, StorageConfiguration, SyncState, load_configuration, save_configuration
+from storage import BackendUnavailableError, StorageConfiguration, SyncState, load_configuration
 from storage.management import configure_storage, disable_storage, storage_overview, sync_now
 
 
@@ -27,7 +24,8 @@ class StorageManagementTest(unittest.TestCase):
         self.assertEqual(overview["failures"], {})
         self.assertIsNone(overview["lastError"])
         folder = next(backend for backend in overview["backends"] if backend["name"] == "folder")
-        self.assertEqual(folder["settings"], [{"key": "directory", "label": "Folder to keep a copy of your data in", "default": ""}])
+        directory_setting = {"key": "directory", "label": "Folder to keep a copy of your data in", "default": ""}
+        self.assertEqual(folder["settings"], [directory_setting])
 
     def test_the_overview_shows_the_configured_backend(self):
         configure_storage(self.data, "folder", {"directory": str(self.cloud)})
@@ -36,7 +34,7 @@ class StorageManagementTest(unittest.TestCase):
         )
 
     def test_the_overview_shows_the_last_sync_problem(self):
-        SyncState(self.data / "sync" / "sync-state.json").record_value("last_error", "the backend is down")
+        SyncState(self.data / "sync").last_error = "the backend is down"
         self.assertEqual(storage_overview(self.data)["lastError"], "the backend is down")
 
     def test_configuring_saves_the_choice(self):
@@ -44,37 +42,36 @@ class StorageManagementTest(unittest.TestCase):
         self.assertEqual(self.configured(), StorageConfiguration("folder", {"directory": str(self.cloud)}))
 
     def test_configuring_an_unknown_backend_saves_nothing(self):
-        with self.assertRaisesRegex(BackendUnavailable, "nosuch"):
+        with self.assertRaisesRegex(BackendUnavailableError, "nosuch"):
             configure_storage(self.data, "nosuch", {})
         self.assertIsNone(self.configured())
 
     def test_a_failed_configuration_keeps_the_previous_one(self):
         configure_storage(self.data, "folder", {"directory": str(self.cloud)})
-        with self.assertRaises(BackendUnavailable):
+        with self.assertRaises(BackendUnavailableError):
             configure_storage(self.data, "nosuch", {})
         self.assertEqual(self.configured().backend, "folder")
 
     def test_settings_that_are_not_text_are_refused(self):
         for settings in ({"directory": 5}, {"directory": ["a"]}, {"directory": "x" * 501}, "directory=x", None):
-            with self.subTest(settings=settings):
-                with self.assertRaises(BackendUnavailable):
-                    configure_storage(self.data, "folder", settings)
+            with self.subTest(settings=settings), self.assertRaises(BackendUnavailableError):
+                configure_storage(self.data, "folder", settings)
         self.assertIsNone(self.configured())
 
     def test_a_backend_that_cannot_be_reached_is_refused_and_saves_nothing(self):
         blocker = self.cloud / "blocker"
         blocker.write_text("a file where the directory should be")
-        with self.assertRaisesRegex(BackendUnavailable, "Could not reach"):
+        with self.assertRaisesRegex(BackendUnavailableError, "Could not reach"):
             configure_storage(self.data, "folder", {"directory": str(blocker)})
         self.assertIsNone(self.configured())
 
     def test_a_folder_backend_without_a_folder_is_refused(self):
-        with self.assertRaises(BackendUnavailable):
+        with self.assertRaises(BackendUnavailableError):
             configure_storage(self.data, "folder", {})
         self.assertIsNone(self.configured())
 
     def test_a_backend_that_cannot_start_with_these_settings_is_refused(self):
-        with self.assertRaisesRegex(BackendUnavailable, "colour"):
+        with self.assertRaisesRegex(BackendUnavailableError, "colour"):
             configure_storage(self.data, "folder", {"directory": str(self.cloud), "colour": "red"})
 
     def test_disabling_goes_back_to_local_only(self):
@@ -83,7 +80,7 @@ class StorageManagementTest(unittest.TestCase):
         self.assertIsNone(self.configured())
 
     def test_syncing_now_without_a_backend_says_so(self):
-        with self.assertRaisesRegex(BackendUnavailable, "No storage backend"):
+        with self.assertRaisesRegex(BackendUnavailableError, "No storage backend"):
             sync_now(self.data)
 
     def test_syncing_now_brings_the_backend_files_here(self):

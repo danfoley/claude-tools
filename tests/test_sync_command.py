@@ -8,15 +8,19 @@ import tempfile
 import unittest
 from pathlib import Path
 
-SCRIPTS = Path(__file__).resolve().parents[1] / "understand-first" / "scripts"
-sys.path.insert(0, str(SCRIPTS))
-
 import sync as sync_command
 from storage import (
-    BackendUnavailable, StorageConfiguration, build_backend, discover_backends, load_configuration,
-    remove_configuration, save_configuration,
+    BACKENDS_DIRECTORY,
+    BackendUnavailableError,
+    StorageConfiguration,
+    build_backend,
+    discover_backends,
+    load_configuration,
+    remove_configuration,
+    save_configuration,
 )
-from storage import BACKENDS_DIRECTORY
+
+SCRIPTS = Path(__file__).resolve().parents[1] / "understand-first" / "scripts"
 
 
 class TemporaryFolders(unittest.TestCase):
@@ -44,7 +48,9 @@ class ConfigurationTest(TemporaryFolders):
 
     def test_a_saved_configuration_is_loaded_back(self):
         save_configuration(self.data / "sync", StorageConfiguration("folder", {"directory": "/somewhere"}))
-        self.assertEqual(load_configuration(self.data / "sync"), StorageConfiguration("folder", {"directory": "/somewhere"}))
+        self.assertEqual(
+            load_configuration(self.data / "sync"), StorageConfiguration("folder", {"directory": "/somewhere"})
+        )
 
     def test_removing_the_configuration_returns_to_no_configuration(self):
         save_configuration(self.data / "sync", StorageConfiguration("folder", {"directory": "/somewhere"}))
@@ -52,24 +58,26 @@ class ConfigurationTest(TemporaryFolders):
         self.assertIsNone(load_configuration(self.data / "sync"))
 
     def test_builds_the_configured_backend_with_its_settings(self):
-        backend = build_backend(StorageConfiguration("folder", {"directory": str(self.cloud)}), discover_backends(BACKENDS_DIRECTORY))
+        configuration = StorageConfiguration("folder", {"directory": str(self.cloud)})
+        backend = build_backend(configuration, discover_backends(BACKENDS_DIRECTORY))
         backend.put("ledger.md", "x")
         self.assertEqual((self.cloud / "ledger.md").read_text(), "x")
 
     def test_a_backend_that_is_not_installed_is_unavailable(self):
-        with self.assertRaisesRegex(BackendUnavailable, "nosuch.*folder"):
+        with self.assertRaisesRegex(BackendUnavailableError, "nosuch.*folder"):
             build_backend(StorageConfiguration("nosuch", {}), discover_backends(BACKENDS_DIRECTORY))
 
     def test_a_backend_that_failed_to_load_is_unavailable_with_the_reason(self):
         broken = self.cloud / "broken"
         broken.mkdir()
         (broken / "__init__.py").write_text("import module_that_does_not_exist\n")
-        with self.assertRaisesRegex(BackendUnavailable, "broken.*module_that_does_not_exist"):
+        with self.assertRaisesRegex(BackendUnavailableError, "broken.*module_that_does_not_exist"):
             build_backend(StorageConfiguration("broken", {}), discover_backends(self.cloud))
 
     def test_a_setting_the_backend_does_not_declare_is_refused(self):
-        with self.assertRaisesRegex(BackendUnavailable, "colour"):
-            build_backend(StorageConfiguration("folder", {"directory": "/x", "colour": "red"}), discover_backends(BACKENDS_DIRECTORY))
+        with self.assertRaisesRegex(BackendUnavailableError, "colour"):
+            configuration = StorageConfiguration("folder", {"directory": "/x", "colour": "red"})
+            build_backend(configuration, discover_backends(BACKENDS_DIRECTORY))
 
 
 class SyncCommandTest(TemporaryFolders):
@@ -89,6 +97,19 @@ class SyncCommandTest(TemporaryFolders):
         self.assertEqual(code, 2)
         self.assertIn("nosuch", message)
         self.assertIsNone(load_configuration(self.data / "sync"))
+
+    def test_a_setting_without_an_equals_sign_is_a_usage_error_and_saves_nothing(self):
+        code, message = self.run_command("configure", "folder", "directory")
+        self.assertEqual(code, 2)
+        self.assertIn("setting=value", message)
+        self.assertIsNone(load_configuration(self.data / "sync"))
+
+    def test_a_damaged_settings_file_is_explained_not_reported_as_unreachable(self):
+        (self.data / "sync").mkdir()
+        (self.data / "sync" / "config.json").write_text("{ not json")
+        code, message = self.run_command("pull")
+        self.assertEqual(code, 2)
+        self.assertIn("damaged", message)
 
     def test_pull_brings_the_backend_files_to_this_computer(self):
         (self.cloud / "ledger.md").write_text("stage: 4\n")
@@ -138,10 +159,45 @@ class SyncCommandTest(TemporaryFolders):
         self.configure_folder_backend()
         environment = {**os.environ, "UNDERSTAND_FIRST_DATA": str(self.data)}
         result = subprocess.run(
-            [sys.executable, "-I", str(SCRIPTS / "sync.py"), "pull"], env=environment, capture_output=True, text=True
+            [sys.executable, str(SCRIPTS / "sync.py"), "pull"], env=environment, capture_output=True, text=True
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual((self.data / "ledger.md").read_text(), "stage: 4\n")
+
+
+class UpgradeFromRelease080Test(TemporaryFolders):
+    CONFIG = '{\n  "backend": "folder",\n  "settings": {\n    "directory": "%s"\n  }\n}'
+    STATE = (
+        '{"hashes": {"ledger.md": "7b91931a377b0a5c254f20d157b7f7261b8f379779961b8cbe41300bf50f473a"}, '
+        '"events_cursor": 1, "last_activity": 1000.0, "last_push_attempt": 1000.0, "last_error": null}'
+    )
+
+    def setUp(self):
+        super().setUp()
+        (self.data / "sync").mkdir()
+        (self.data / "sync" / "config.json").write_text(self.CONFIG % self.cloud)
+        (self.data / "sync" / "sync-state.json").write_text(self.STATE)
+        (self.data / "ledger.md").write_text("stage: 1\n")
+        (self.data / "events.jsonl").write_text('{"event": "a"}\n{"event": "b"}\n')
+        (self.cloud / "events.jsonl").write_text('{"event": "a"}\n')
+
+    def test_the_saved_choice_of_backend_is_still_understood(self):
+        code, message = self.run_command("status")
+        self.assertEqual(code, 0)
+        self.assertIn("folder", message)
+        self.assertNotIn("Last sync problem", message)
+
+    def test_a_push_continues_from_the_saved_cursor_without_repeating_events(self):
+        self.assertEqual(self.run_command("push")[0], 0)
+        self.assertEqual((self.cloud / "events.jsonl").read_text(), '{"event": "a"}\n{"event": "b"}\n')
+
+    def test_a_file_that_matches_its_saved_hash_is_not_sent_again(self):
+        self.run_command("push")
+        self.assertFalse((self.cloud / "ledger.md").exists())
+
+    def test_a_tick_works_with_the_saved_state(self):
+        self.assertEqual(self.run_command("tick")[0], 0)
+        self.assertEqual((self.cloud / "events.jsonl").read_text(), '{"event": "a"}\n{"event": "b"}\n')
 
 
 class HooksTest(unittest.TestCase):

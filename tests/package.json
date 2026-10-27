@@ -3,12 +3,24 @@
   "private": true,
   "description": "Tests for the plugins in this marketplace. Not part of any plugin, so they are never installed.",
   "scripts": {
-    "test:unit": "python3 -m unittest discover -s . -p 'test_*.py'",
+    "test:unit": "PYTHONPATH=../understand-first/scripts python3 -m unittest discover -s . -p 'test_*.py'",
     "test:browser": "playwright test",
-    "test": "npm run test:unit && npm run test:browser"
+    "test": "npm run test:unit && npm run test:browser",
+    "lint:python": "cd .. && ruff check . && mypy",
+    "lint:js": "cd .. && tests/node_modules/.bin/eslint -c tests/eslint.config.mjs tests understand-first/viewer/index.html understand-first/dashboard/index.html",
+    "lint:html": "html-validate ../understand-first/viewer/index.html ../understand-first/dashboard/index.html",
+    "lint:types": "tsc -p .",
+    "lint": "npm run lint:python && npm run lint:js && npm run lint:html && npm run lint:types"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@playwright/test": "1.60.0",
-    "@types/node": "^24.2.0"
+    "@types/node": "^24.2.0",
+    "eslint": "^9.39.5",
+    "eslint-plugin-html": "^8.2.1",
+    "globals": "^17.13.0",
+    "html-validate": "^11.17.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.1"
   }
 }

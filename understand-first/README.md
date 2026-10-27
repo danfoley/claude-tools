@@ -118,7 +118,7 @@ class Backend(StorageBackend):
 
 The scanner skips a backend that fails to import, does not extend `StorageBackend`, leaves a method unimplemented, has no name, repeats a setting key or reuses another backend's name, and reports the reason. A skipped backend never affects the others.
 
-To test it, copy the `StorageContract` tests in `tests/test_storage.py` for your backend (it needs a way to build one against a fake or temporary store), then run `python3 -m unittest discover -s tests`. A test there already checks that every shipped backend loads. In your pull request, bump `version` in `.claude-plugin/plugin.json` as described in the repository's `CLAUDE.md`.
+To test it, copy the `StorageContract` tests in `tests/test_storage.py` for your backend (it needs a way to build one against a fake or temporary store), then run `PYTHONPATH=understand-first/scripts python3 -m unittest discover -s tests`. A test there already checks that every shipped backend loads. CI also lints and type-checks your backend with `npm run lint` (run it from `tests/`); no lint rule may be disabled, so fix the code instead. In your pull request, bump `version` in `.claude-plugin/plugin.json` as described in the repository's `CLAUDE.md`.
 
 ### Windows
 Not supported yet, and untested. The hook commands use bash syntax and `python3`, files are read and written with the system's default text encoding instead of UTF-8, and Windows can refuse to replace a file another program has open. Someone needs to test the plugin on Windows and open a pull request with the fixes.

@@ -1,11 +1,8 @@
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "understand-first" / "scripts"))
-
-from storage import StorageBackend, StorageError
+from storage import LocalFolder, StorageBackend, StorageError
 from storage.backends.folder import Backend as FolderBackend
 
 
@@ -42,16 +39,41 @@ class StorageContract:
         backend = self.make_backend()
         for name in ("../ledger.md", "sub/ledger.md", "/etc/passwd", "", ".."):
             with self.subTest(name=name):
-                with self.assertRaises(StorageError):
-                    backend.get(name)
-                with self.assertRaises(StorageError):
-                    backend.put(name, "x")
+                self.assert_refused(backend.get, name)
+                self.assert_refused(backend.put, name, "x")
+
+    def assert_refused(self, operation, *arguments):
+        with self.assertRaises(StorageError):
+            operation(*arguments)
 
 
 class StorageBackendTest(unittest.TestCase):
     def test_the_contract_cannot_be_used_directly(self):
         with self.assertRaises(TypeError):
             StorageBackend()
+
+
+class LocalFolderTest(StorageContract, unittest.TestCase):
+    def make_backend(self):
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        return LocalFolder(Path(folder.name))
+
+    def test_creates_the_directory_when_it_does_not_exist_yet(self):
+        with tempfile.TemporaryDirectory() as parent:
+            directory = Path(parent) / "not" / "there" / "yet"
+            LocalFolder(directory).put("ledger.md", "x")
+            self.assertEqual((directory / "ledger.md").read_text(), "x")
+
+    def test_put_leaves_no_temporary_file_behind(self):
+        with tempfile.TemporaryDirectory() as folder:
+            LocalFolder(Path(folder)).put("ledger.md", "x")
+            self.assertEqual([p.name for p in Path(folder).iterdir()], ["ledger.md"])
+
+    def test_text_is_stored_as_utf8_whatever_the_system_encoding(self):
+        with tempfile.TemporaryDirectory() as folder:
+            LocalFolder(Path(folder)).put("ledger.md", "naïve → ok\n")
+            self.assertEqual((Path(folder) / "ledger.md").read_bytes(), "naïve → ok\n".encode())
 
 
 class FolderBackendTest(StorageContract, unittest.TestCase):
@@ -64,22 +86,10 @@ class FolderBackendTest(StorageContract, unittest.TestCase):
         self.assertEqual(FolderBackend.name, "folder")
         self.assertEqual([setting.key for setting in FolderBackend.settings], ["directory"])
 
-    def test_creates_the_directory_when_it_does_not_exist_yet(self):
-        with tempfile.TemporaryDirectory() as parent:
-            directory = Path(parent) / "not" / "there" / "yet"
-            FolderBackend(directory=str(directory)).put("ledger.md", "x")
-            self.assertEqual((directory / "ledger.md").read_text(), "x")
-
     def test_refuses_to_start_without_a_directory(self):
         for directory in ("", "   "):
-            with self.subTest(directory=directory):
-                with self.assertRaises(StorageError):
-                    FolderBackend(directory=directory)
-
-    def test_put_leaves_no_temporary_file_behind(self):
-        with tempfile.TemporaryDirectory() as folder:
-            FolderBackend(directory=folder).put("ledger.md", "x")
-            self.assertEqual([p.name for p in Path(folder).iterdir()], ["ledger.md"])
+            with self.subTest(directory=directory), self.assertRaises(StorageError):
+                FolderBackend(directory=directory)
 
 
 if __name__ == "__main__":

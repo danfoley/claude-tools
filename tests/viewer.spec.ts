@@ -101,8 +101,8 @@ const ALL_CONCEPTS = SEEDED_CONCEPTS.map(([name]) => name);
 
 const test = base.extend<{ ledger: Ledger }, { viewerServer: ViewerServer }>({
   viewerServer: [
-    async ({}, use) => {
-      const dataDir = mkdtempSync(join(tmpdir(), 'understand-first-spec-'));
+    async ({ browserName }, use) => {
+      const dataDir = mkdtempSync(join(tmpdir(), `understand-first-spec-${browserName}-`));
       seedData(dataDir);
       const viewer = spawn('python3', [join(PLUGIN_ROOT, 'scripts', 'viewer.py'), 'serve'], {
         env: { ...process.env, UNDERSTAND_FIRST_DATA: dataDir, UNDERSTAND_FIRST_PORT: '0' },
@@ -120,22 +120,25 @@ const test = base.extend<{ ledger: Ledger }, { viewerServer: ViewerServer }>({
     await use(viewerServer.url);
   },
 
-  ledger: async ({ viewerServer }, use) => {
-    seedData(viewerServer.dataDir);
-    rmSync(join(viewerServer.dataDir, 'sync'), { recursive: true, force: true });
-    const ledgerPath = join(viewerServer.dataDir, 'ledger.md');
-    await use({
-      addConcepts: (...blocks) => appendFileSync(ledgerPath, `\n${blocks.join('\n')}`),
-      setStatus: (concept, status) => {
-        const pattern = new RegExp(`(### ${concept}\\n- status: )[a-z]+`);
-        writeFileSync(ledgerPath, readFileSync(ledgerPath, 'utf8').replace(pattern, `$1${status}`));
-      },
-      addWork: item => appendFileSync(join(viewerServer.dataDir, 'work.md'), `\n${workBlock(item)}`),
-      removeWork: () => rmSync(join(viewerServer.dataDir, 'work.md'), { force: true }),
-    });
-  },
+  ledger: [
+    async ({ viewerServer }, use) => {
+      seedData(viewerServer.dataDir);
+      rmSync(join(viewerServer.dataDir, 'sync'), { recursive: true, force: true });
+      const ledgerPath = join(viewerServer.dataDir, 'ledger.md');
+      await use({
+        addConcepts: (...blocks) => appendFileSync(ledgerPath, `\n${blocks.join('\n')}`),
+        setStatus: (concept, status) => {
+          const pattern = new RegExp(`(### ${concept}\\n- status: )[a-z]+`);
+          writeFileSync(ledgerPath, readFileSync(ledgerPath, 'utf8').replace(pattern, `$1${status}`));
+        },
+        addWork: item => appendFileSync(join(viewerServer.dataDir, 'work.md'), `\n${workBlock(item)}`),
+        removeWork: () => rmSync(join(viewerServer.dataDir, 'work.md'), { force: true }),
+      });
+    },
+    { auto: true },
+  ],
 
-  page: async ({ page, ledger }, use) => {
+  page: async ({ page }, use) => {
     const pageErrors: Error[] = [];
     page.on('pageerror', error => pageErrors.push(error));
     await page.goto('/');
@@ -417,7 +420,7 @@ test.describe('recent screen', () => {
   test('matches are highlighted', async ({ page }) => {
     await search(page).fill('digest');
 
-    await expect(workCard(page, 'Email digest').getByRole('mark').first()).toHaveText('digest');
+    await expect(workCard(page, 'Email digest').locator('mark').first()).toHaveText('digest');
   });
 
   test('a search with no match says so and can be cleared', async ({ page }) => {
@@ -652,7 +655,7 @@ test.describe('recent screen: search across everything', () => {
   test('matches in concepts and activity are highlighted', async ({ page }) => {
     await search(page).fill('lowered');
 
-    await expect(matchedEvents(page).first().getByRole('mark')).toHaveText('lowered');
+    await expect(matchedEvents(page).first().locator('mark')).toHaveText('lowered');
   });
 
   test('the understanding filter does not hide matched concepts', async ({ page }) => {

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import json
-import re
 import sys
 from pathlib import Path
 
@@ -39,7 +38,7 @@ def read_concepts(ledger_path):
 
 
 def empty_concept(name):
-    row = {field: "" for field in LEDGER_FIELDS.values()}
+    row = dict.fromkeys(LEDGER_FIELDS.values(), "")
     row["concept"] = name
     row["examples"] = []
     return row

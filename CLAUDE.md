@@ -15,7 +15,12 @@ Every commit that changes anything under `understand-first/` must bump `version`
 ### Tests
 - Tests live in `tests/` at the repo root, outside the plugin folder, so installing the plugin never downloads them. Do not put test files inside `understand-first/`.
 - A commit that changes only `tests/` does not need a version bump, because it does not change what users receive.
-- Unit tests: `python3 -m unittest discover -s tests`. Browser test: `cd tests && npm install && npx playwright test`. Both start their own viewer against a temporary data folder, never a real ledger.
+- Unit tests: `PYTHONPATH=understand-first/scripts python3 -m unittest discover -s tests`. Browser test: `cd tests && npm install && npx playwright test`. Both start their own viewer against a temporary data folder, never a real ledger.
+- GitHub Actions (`.github/workflows/tests.yml`) runs the unit tests on Python 3.9 and 3.12, the browser test, and the lint job on every push and pull request.
+
+### Linting
+- `cd tests && npm install && pip install -r ../requirements-dev.txt && npm run lint` runs ruff, mypy (strict), ESLint (JavaScript and TypeScript), the HTML validator and `tsc`. CI runs the same command.
+- Never disable a lint rule: no `noqa`, `eslint-disable`, `type: ignore`, `ts-ignore`, per-file ignores or `ignore` lists in the config. Fix the code instead.
 
 ### After pushing a release
 - Refresh the marketplace listing before updating, or `claude plugin update` can say "already at the latest version" for a version that is already on GitHub: run `claude plugin marketplace update claude-tools`, then `claude plugin update understand-first@claude-tools`.
@@ -24,5 +29,5 @@ Every commit that changes anything under `understand-first/` must bump `version`
 
 ### Before committing
 - Run `claude plugin validate understand-first` and `claude plugin validate .`.
-- Run the unit tests and the browser test.
+- Run the unit tests, the browser test and `npm run lint` (from `tests/`).
 - Mark a breaking change with `!` after the commit scope, as in `feat(understand-first)!: ...`.
