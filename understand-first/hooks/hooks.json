@@ -12,6 +12,30 @@
           }
         ]
       }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "PATH=\"$PATH:/usr/bin:/usr/local/bin:/opt/homebrew/bin\" python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/sync.py\" tick",
+            "shell": "bash",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "PATH=\"$PATH:/usr/bin:/usr/local/bin:/opt/homebrew/bin\" python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/sync.py\" push",
+            "shell": "bash",
+            "timeout": 30
+          }
+        ]
+      }
     ]
   }
 }

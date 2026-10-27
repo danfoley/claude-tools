@@ -13,6 +13,9 @@ from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from storage import BackendUnavailable
+from storage.management import configure_storage, disable_storage, storage_overview, sync_now
+
 PLUGIN_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PORT = 37750
 STAGE_COUNT = 6
@@ -186,6 +189,7 @@ def build_state(directory):
         "work": parse_work(read_text(directory / "work.md")),
         "eventCount": len(events),
         "events": events[-EVENTS_SHOWN:][::-1],
+        "storage": storage_overview(directory),
     }
 
 
@@ -345,7 +349,38 @@ def skip_gates(directory, request):
     return "Noted. Claude will skip the gates for the next task and record it as skipped in the work log, so you can go back to it."
 
 
+def storage_configure(directory, request):
+    backend = request.get("backend")
+    if not isinstance(backend, str):
+        raise Refusal("Choose a storage backend.")
+    try:
+        configure_storage(directory, backend, request.get("settings", {}))
+    except BackendUnavailable as problem:
+        raise Refusal(str(problem))
+    log_event(directory, "setting-changed", "learner request via the viewer", f"storage backend {backend}")
+    return f"Storage is now {backend}. Your files are copied there at your next prompt. Press Sync now to bring its files to this computer."
+
+
+def storage_disable(directory, request):
+    disable_storage(directory)
+    log_event(directory, "setting-changed", "learner request via the viewer", "storage backend off, local only")
+    return "Storage is local only again. Files already in the backend are left where they are."
+
+
+def storage_sync_now(directory, request):
+    try:
+        sync_now(directory)
+    except BackendUnavailable as problem:
+        raise Refusal(str(problem))
+    except Exception as problem:
+        raise Refusal(f"Could not reach the storage backend: {problem}")
+    return "Synced. Files from the backend are now on this computer."
+
+
 ACTIONS = {
+    "storage-configure": storage_configure,
+    "storage-disable": storage_disable,
+    "storage-sync-now": storage_sync_now,
     "stage-down": stage_down,
     "reset-stage": reset_stage,
     "dial-down": dial_down,

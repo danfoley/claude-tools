@@ -32,7 +32,7 @@
  */
 import { test as base, expect, type Locator, type Page } from '@playwright/test';
 import { spawn } from 'node:child_process';
-import { appendFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -122,6 +122,7 @@ const test = base.extend<{ ledger: Ledger }, { viewerServer: ViewerServer }>({
 
   ledger: async ({ viewerServer }, use) => {
     seedData(viewerServer.dataDir);
+    rmSync(join(viewerServer.dataDir, 'sync'), { recursive: true, force: true });
     const ledgerPath = join(viewerServer.dataDir, 'ledger.md');
     await use({
       addConcepts: (...blocks) => appendFileSync(ledgerPath, `\n${blocks.join('\n')}`),
@@ -661,6 +662,80 @@ test.describe('recent screen: search across everything', () => {
     await expect(matchedConcepts(page)).toHaveText([/^checkpointing/]);
   });
 });
+
+test.describe('settings screen: storage', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/#settings');
+  });
+
+  test('starts as local only and offers the folder backend', async ({ page }) => {
+    await expect(storageCard(page).getByRole('heading', { name: 'Storage' })).toBeVisible();
+    await expect(storageCard(page)).toContainText('Your data is only on this computer');
+    await expect(storageCard(page).getByRole('combobox', { name: 'Storage backend' })).toHaveValue('folder');
+    await expect(storageCard(page).getByLabel('Folder to keep a copy of your data in')).toBeVisible();
+    await expect(storageCard(page).getByRole('button', { name: 'Sync now' })).toBeHidden();
+  });
+
+  test('saving a folder switches storage to it', async ({ page, viewerServer }) => {
+    const cloud = mkdtempSync(join(tmpdir(), 'understand-first-cloud-'));
+    await storageCard(page).getByLabel('Folder to keep a copy of your data in').fill(cloud);
+    await storageCard(page).getByRole('button', { name: 'Save and use' }).click();
+
+    await expect(storageCard(page)).toContainText('Your data is copied to folder');
+    await expect(storageCard(page).getByRole('button', { name: 'Sync now' })).toBeVisible();
+    await expect(storageCard(page).getByRole('button', { name: 'Use local storage only' })).toBeVisible();
+    expect(JSON.parse(readFileSync(join(viewerServer.dataDir, 'sync', 'config.json'), 'utf8'))).toEqual({
+      backend: 'folder', settings: { directory: cloud },
+    });
+    rmSync(cloud, { recursive: true, force: true });
+  });
+
+  test('a folder that is left empty is refused with the reason and nothing changes', async ({ page, viewerServer }) => {
+    await storageCard(page).getByRole('button', { name: 'Save and use' }).click();
+
+    await expect(page.getByText(/Choose the folder/)).toBeVisible();
+    await expect(storageCard(page)).toContainText('Your data is only on this computer');
+    expect(existsSync(join(viewerServer.dataDir, 'sync', 'config.json'))).toBe(false);
+  });
+
+  test('Sync now brings the backend files to this computer', async ({ page, viewerServer }) => {
+    const cloud = mkdtempSync(join(tmpdir(), 'understand-first-cloud-'));
+    writeFileSync(join(cloud, 'sources-added.md'), 'from the cloud\n');
+    await storageCard(page).getByLabel('Folder to keep a copy of your data in').fill(cloud);
+    await storageCard(page).getByRole('button', { name: 'Save and use' }).click();
+    await storageCard(page).getByRole('button', { name: 'Sync now' }).click();
+
+    await expect.poll(() => textOf(join(viewerServer.dataDir, 'sources-added.md'))).toBe('from the cloud');
+    rmSync(cloud, { recursive: true, force: true });
+  });
+
+  test('Use local storage only goes back to keeping data on this computer', async ({ page, viewerServer }) => {
+    const cloud = mkdtempSync(join(tmpdir(), 'understand-first-cloud-'));
+    await storageCard(page).getByLabel('Folder to keep a copy of your data in').fill(cloud);
+    await storageCard(page).getByRole('button', { name: 'Save and use' }).click();
+    await storageCard(page).getByRole('button', { name: 'Use local storage only' }).click();
+
+    await expect(storageCard(page)).toContainText('Your data is only on this computer');
+    expect(existsSync(join(viewerServer.dataDir, 'sync', 'config.json'))).toBe(false);
+    rmSync(cloud, { recursive: true, force: true });
+  });
+
+  test('storage can be chosen before the first session has created a ledger', async ({ page, viewerServer }) => {
+    rmSync(join(viewerServer.dataDir, 'ledger.md'));
+    await page.reload();
+
+    await expect(storageCard(page).getByRole('button', { name: 'Save and use' })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Settings' }).getByText('No ledger yet.')).toBeVisible();
+  });
+});
+
+function textOf(path: string): string {
+  return existsSync(path) ? readFileSync(path, 'utf8').trim() : '';
+}
+
+function storageCard(page: Page): Locator {
+  return page.getByRole('region', { name: 'Settings' }).locator('#storage');
+}
 
 async function openWork(page: Page, title: string): Promise<void> {
   await workCard(page, title).getByRole('heading', { level: 3 }).click();

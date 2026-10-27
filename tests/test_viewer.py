@@ -235,6 +235,65 @@ class ViewerTest(unittest.TestCase):
         updated = viewer.set_header_line(LEDGER, "stats-mode", "dashboard")
         self.assertIn("primary-language: PHP\nstats-mode: dashboard\n", updated)
 
+    def make_cloud_folder(self):
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        return Path(folder.name)
+
+    def current_state(self):
+        return json.loads(self.request("GET", "/api/state")[1])
+
+    def test_state_lists_the_storage_backends_and_that_none_is_chosen_yet(self):
+        storage = self.current_state()["storage"]
+        self.assertIsNone(storage["configured"])
+        self.assertIn("folder", [backend["name"] for backend in storage["backends"]])
+
+    def test_choosing_a_storage_backend_saves_it_and_logs_it(self):
+        cloud = self.make_cloud_folder()
+        status, result = self.act({"action": "storage-configure", "backend": "folder", "settings": {"directory": str(cloud)}})
+        self.assertEqual(status, 200)
+        self.assertEqual(result["state"]["storage"]["configured"], {"backend": "folder", "settings": {"directory": str(cloud)}})
+        self.assertEqual(self.logged_events()[-1]["event"], "setting-changed")
+        self.assertIn("folder", self.logged_events()[-1]["note"])
+
+    def test_choosing_an_unknown_storage_backend_is_refused_and_changes_nothing(self):
+        status, result = self.act({"action": "storage-configure", "backend": "nosuch", "settings": {}})
+        self.assertEqual(status, 400)
+        self.assertIn("nosuch", result["message"])
+        self.assertIsNone(self.current_state()["storage"]["configured"])
+
+    def test_settings_the_backend_does_not_declare_are_refused(self):
+        status, _ = self.act({"action": "storage-configure", "backend": "folder", "settings": {"colour": "red"}})
+        self.assertEqual(status, 400)
+
+    def test_storage_settings_that_are_not_text_are_refused(self):
+        status, _ = self.act({"action": "storage-configure", "backend": "folder", "settings": {"directory": 5}})
+        self.assertEqual(status, 400)
+
+    def test_going_back_to_local_only_storage(self):
+        cloud = self.make_cloud_folder()
+        self.act({"action": "storage-configure", "backend": "folder", "settings": {"directory": str(cloud)}})
+        status, result = self.act({"action": "storage-disable"})
+        self.assertEqual(status, 200)
+        self.assertIsNone(result["state"]["storage"]["configured"])
+        self.assertEqual(self.logged_events()[-1]["event"], "setting-changed")
+
+    def test_syncing_now_brings_the_backend_files_here(self):
+        cloud = self.make_cloud_folder()
+        (cloud / "sources-added.md").write_text("from the cloud\n")
+        self.act({"action": "storage-configure", "backend": "folder", "settings": {"directory": str(cloud)}})
+        self.assertEqual(self.act({"action": "storage-sync-now"})[0], 200)
+        self.assertEqual((self.directory / "sources-added.md").read_text(), "from the cloud\n")
+
+    def test_syncing_now_without_a_backend_is_refused(self):
+        status, result = self.act({"action": "storage-sync-now"})
+        self.assertEqual(status, 400)
+        self.assertIn("No storage backend", result["message"])
+
+    def test_a_storage_change_without_the_token_is_refused(self):
+        status, _ = self.act({"action": "storage-disable"}, token="wrong")
+        self.assertEqual(status, 403)
+
 
 if __name__ == "__main__":
     unittest.main()

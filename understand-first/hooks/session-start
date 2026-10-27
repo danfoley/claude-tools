@@ -41,12 +41,23 @@ start_viewer() {
   viewer_url="$(python3 "${hooks_dir%/*}/scripts/viewer.py" ensure 2>/dev/null)" || viewer_url=""
 }
 
+pull_from_storage() {
+  local output status=0
+  PATH="$PATH:/usr/bin:/usr/local/bin:/opt/homebrew/bin"
+  command -v python3 >/dev/null 2>&1 || return 0
+  output="$(python3 "${hooks_dir%/*}/scripts/sync.py" pull 2>&1)" || status=$?
+  [ "$status" -eq 0 ] && return 0
+  storage_notice="STORAGE PROBLEM, tell the learner before anything else: ${output}"$'\n'"Their data is safe in their storage backend, but this session started from the local copy, which may be missing or out of date. Ask whether to carry on with local storage only. Only if they say yes, run: python3 ${hooks_dir%/*}/scripts/sync.py disable. Never run it without their answer."
+}
+
 hooks_dir="$(script_dir)"
 data_dir="${UNDERSTAND_FIRST_DATA:-$HOME/.claude/understand-first}"
 ledger_path="${data_dir}/ledger.md"
 events_path="${data_dir}/events.jsonl"
 viewer_url=""
+storage_notice=""
 
+pull_from_storage
 install_status_script
 start_viewer
 
@@ -58,6 +69,6 @@ else
   ledger="(no ledger yet: ask the learner for their primary language, then create it with stage 1 before the first gate)"
 fi
 
-context="${rules}"$'\n\n'"Ledger path: ${ledger_path}"$'\n'"Event log path: ${events_path}"$'\n'"Source map: ${hooks_dir%/*}/sources.md"$'\n'"Added sources: ${data_dir}/sources-added.md"$'\n'"Work log: ${data_dir}/work.md"${viewer_url:+$'\n'"Live viewer: ${viewer_url}"}$'\n\n'"Ledger contents:"$'\n'"${ledger}"
+context="${rules}"${storage_notice:+$'\n\n'"${storage_notice}"}$'\n\n'"Ledger path: ${ledger_path}"$'\n'"Event log path: ${events_path}"$'\n'"Source map: ${hooks_dir%/*}/sources.md"$'\n'"Added sources: ${data_dir}/sources-added.md"$'\n'"Work log: ${data_dir}/work.md"${viewer_url:+$'\n'"Live viewer: ${viewer_url}"}$'\n\n'"Ledger contents:"$'\n'"${ledger}"
 
 printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s"}}\n' "$(escape_for_json "$context")"
