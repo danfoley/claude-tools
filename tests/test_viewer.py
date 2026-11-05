@@ -1,13 +1,20 @@
 import http.client
 import json
 import os
+import shutil
+import socket
+import subprocess
+import sys
 import tempfile
 import threading
+import time
 import unittest
 import unittest.mock
 from pathlib import Path
 
 import viewer
+
+PLUGIN = Path(__file__).resolve().parents[1] / "understand-first"
 
 LEDGER = """stage: 3
 stage-since: 2026-10-01
@@ -205,6 +212,19 @@ class ViewerTest(unittest.TestCase):
         self.assertIn(self.server.token, page)
         self.assertNotIn("__TOKEN__", page)
 
+    def test_the_page_links_a_browser_tab_icon_and_the_viewer_serves_it(self):
+        _, page = self.request("GET", "/")
+        self.assertIn('href="/favicon.svg"', page)
+        status, icon = self.request("GET", "/favicon.svg")
+        self.assertEqual(status, 200)
+        self.assertTrue(icon.startswith("<svg"))
+
+    def test_the_security_policy_lets_the_page_load_its_own_images(self):
+        connection = http.client.HTTPConnection("127.0.0.1", self.server.server_port, timeout=5)
+        connection.request("GET", "/")
+        policy = connection.getresponse().getheader("Content-Security-Policy")
+        self.assertIn("img-src 'self'", policy)
+
     def test_a_change_without_the_token_is_refused_and_changes_nothing(self):
         status, _ = self.act({"action": "stage-down"}, token="wrong")
         self.assertEqual(status, 403)
@@ -345,6 +365,105 @@ class ViewerTest(unittest.TestCase):
     def test_a_storage_change_without_the_token_is_refused(self):
         status, _ = self.act({"action": "storage-disable"}, token="wrong")
         self.assertEqual(status, 403)
+
+
+class SelfUpdateTest(unittest.TestCase):
+    def setUp(self):
+        folders = tempfile.TemporaryDirectory()
+        self.addCleanup(folders.cleanup)
+        self.root = Path(folders.name) / "understand-first"
+        self.data = Path(folders.name) / "data"
+        self.root.mkdir()
+        self.data.mkdir()
+
+    def fake_install(self, version, with_viewer=True):
+        folder = self.root / version
+        (folder / ".claude-plugin").mkdir(parents=True)
+        (folder / ".claude-plugin" / "plugin.json").write_text(json.dumps({"version": version}))
+        if with_viewer:
+            (folder / "scripts").mkdir()
+            (folder / "scripts" / "viewer.py").write_text("")
+        return folder
+
+    def real_install(self, version):
+        folder = self.root / version
+        shutil.copytree(PLUGIN, folder, ignore=shutil.ignore_patterns("__pycache__", ".mypy_cache", ".ruff_cache"))
+        manifest = folder / ".claude-plugin" / "plugin.json"
+        manifest.write_text(json.dumps({**json.loads(manifest.read_text()), "version": version}))
+        return folder
+
+    def newer_than(self, running):
+        with unittest.mock.patch.object(viewer, "PLUGIN_ROOT", self.root / running):
+            return viewer.newer_installed_plugin()
+
+    def test_finds_a_newer_installed_version(self):
+        self.fake_install("0.9.0")
+        newer = self.fake_install("0.10.0")
+        self.assertEqual(self.newer_than("0.9.0"), newer)
+
+    def test_picks_the_newest_of_several(self):
+        self.fake_install("0.1.0")
+        self.fake_install("0.2.0")
+        newest = self.fake_install("0.11.0")
+        self.assertEqual(self.newer_than("0.1.0"), newest)
+
+    def test_ignores_older_versions(self):
+        self.fake_install("0.1.0")
+        self.fake_install("0.0.9")
+        self.assertIsNone(self.newer_than("0.1.0"))
+
+    def test_ignores_a_folder_that_is_not_a_release_version(self):
+        self.fake_install("0.1.0")
+        self.fake_install("54f22dcbd905-c57d7e92")
+        self.assertIsNone(self.newer_than("0.1.0"))
+
+    def test_ignores_a_newer_install_that_has_no_viewer_yet(self):
+        self.fake_install("0.1.0")
+        self.fake_install("0.2.0", with_viewer=False)
+        self.assertIsNone(self.newer_than("0.1.0"))
+
+    def free_port(self):
+        with socket.socket() as probe:
+            probe.bind(("127.0.0.1", 0))
+            return probe.getsockname()[1]
+
+    def pidfile_version(self):
+        try:
+            return json.loads((self.data / "viewer.pid").read_text())["version"]
+        except (FileNotFoundError, json.JSONDecodeError):
+            return None
+
+    def wait_for_version(self, version, port):
+        deadline = time.monotonic() + 15
+        while time.monotonic() < deadline:
+            if self.pidfile_version() == version and viewer.is_healthy(port):
+                return
+            time.sleep(0.1)
+        self.fail(f"the viewer never reported version {version}")
+
+    def stop(self, process):
+        process.terminate()
+        process.wait(timeout=5)
+
+    def test_a_running_viewer_hands_itself_over_to_a_newer_install(self):
+        old = self.real_install("0.1.0")
+        port = self.free_port()
+        environment = {
+            **os.environ,
+            "UNDERSTAND_FIRST_DATA": str(self.data),
+            "UNDERSTAND_FIRST_PORT": str(port),
+            "UNDERSTAND_FIRST_UPDATE_CHECK_SECONDS": "0.2",
+        }
+        process = subprocess.Popen(
+            [sys.executable, str(old / "scripts" / "viewer.py"), "serve"],
+            env=environment, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+        self.addCleanup(self.stop, process)
+        self.wait_for_version("0.1.0", port)
+
+        self.real_install("0.2.0")
+
+        self.wait_for_version("0.2.0", port)
 
 
 if __name__ == "__main__":

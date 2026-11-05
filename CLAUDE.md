@@ -26,7 +26,7 @@ The same commit adds a `## <version>` section to `understand-first/whats-new.md`
 
 ### After pushing a release
 - Refresh the marketplace listing before updating, or `claude plugin update` can say "already at the latest version" for a version that is already on GitHub: run `claude plugin marketplace update claude-tools`, then `claude plugin update understand-first@claude-tools`.
-- Restart the live viewer from the new version folder so it never runs from an old one: `python3 <installed plugin folder>/scripts/viewer.py stop`, then `ensure`. The next session start does this by itself when the version changed; do it by hand to have it right away.
+- The live viewer restarts itself on the new version within about 30 seconds of the update, and an open page reloads. This only works once the running viewer is already 0.11.0 or newer; an older running viewer is replaced at the next session start, or by hand: `python3 <installed plugin folder>/scripts/viewer.py stop`, then `ensure`.
 - Changed skill, rules or command text loads only in a new session.
 
 ### Before committing

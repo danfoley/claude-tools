@@ -1,3 +1,7 @@
+## 0.11.0
+- The viewer now updates itself. Within about 30 seconds of a plugin update the running viewer restarts on the new version, and an open page reloads.
+- The viewer has a lightbulb icon in the browser tab.
+
 ## 0.10.0
 - New Projects screen: pick any PR, ticket or project and see the problem, what was done, the skills used with your current level in each, and the decisions behind it.
 - Examples are one line each. Open one to see what it is, where in the code (now a code block with a Copy button) and why.

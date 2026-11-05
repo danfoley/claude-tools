@@ -19,6 +19,7 @@ from storage.management import configure_storage, disable_storage, storage_overv
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PORT = 37750
+UPDATE_CHECK_SECONDS = 30
 STAGE_COUNT = 6
 MAX_BODY_BYTES = 10_000
 EVENTS_SHOWN = 2000
@@ -29,6 +30,7 @@ WEB_LINK_PREFIXES = ("https://", "http://")
 WORK_CONCEPT_PREFIX = "  - "
 WORK_UNDERSTANDING_LEVELS = ("understood", "partly", "not yet", "skipped")
 LANGUAGE_NAME = re.compile(r"^[A-Za-z0-9 .+#-]{1,40}$")
+SEMVER = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 DIAL_LINE = re.compile(r"^- (?P<language>.+?): rung (?P<rung>\d+), clean streak (?P<streak>\d+)$")
 SECURITY_HEADERS = {
     "Cache-Control": "no-store",
@@ -37,7 +39,7 @@ SECURITY_HEADERS = {
     "Referrer-Policy": "no-referrer",
     "Content-Security-Policy": (
         "default-src 'none'; script-src 'self' 'unsafe-inline'; "
-        "style-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'"
+        "style-src 'self' 'unsafe-inline'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'"
     ),
 }
 
@@ -58,6 +60,36 @@ def configured_port():
 def plugin_version():
     manifest = PLUGIN_ROOT / ".claude-plugin" / "plugin.json"
     return json.loads(manifest.read_text())["version"]
+
+
+def update_check_seconds():
+    return float(os.environ.get("UNDERSTAND_FIRST_UPDATE_CHECK_SECONDS", UPDATE_CHECK_SECONDS))
+
+
+def semver_key(version):
+    found = SEMVER.match(version)
+    return tuple(int(part) for part in found.groups()) if found else None
+
+
+def installed_version_of(folder):
+    try:
+        manifest = json.loads((folder / ".claude-plugin" / "plugin.json").read_text())
+        return semver_key(manifest["version"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
+def newer_installed_plugin():
+    newest_key, newest_folder = semver_key(plugin_version()), None
+    try:
+        folders = list(PLUGIN_ROOT.parent.iterdir())
+    except OSError:
+        return None
+    for folder in folders:
+        key = installed_version_of(folder)
+        if key and newest_key and key > newest_key and (folder / "scripts" / "viewer.py").is_file():
+            newest_key, newest_folder = key, folder
+    return newest_folder
 
 
 def viewer_url(port):
@@ -447,6 +479,7 @@ class ViewerServer(ThreadingHTTPServer):
     def __init__(self, directory, port):
         super().__init__(("127.0.0.1", port), ViewerHandler)
         self.directory = directory
+        self.handover_to = None
         self.token = secrets.token_urlsafe(32)
         self.allowed_hosts = {f"127.0.0.1:{self.server_port}", f"localhost:{self.server_port}"}
         self.allowed_origins = {f"http://{host}" for host in self.allowed_hosts}
@@ -462,7 +495,12 @@ class ViewerHandler(BaseHTTPRequestHandler):
         if not self.host_is_allowed():
             self.send_json(403, {"ok": False, "message": "Host not allowed."})
             return
-        routes = {"/": self.send_page, "/api/state": self.send_state, "/api/health": self.send_health}
+        routes = {
+            "/": self.send_page,
+            "/favicon.svg": self.send_icon,
+            "/api/state": self.send_state,
+            "/api/health": self.send_health,
+        }
         route = routes.get(self.path.split("?")[0])
         if route is None:
             self.send_json(404, {"ok": False, "message": "Not found."})
@@ -517,6 +555,9 @@ class ViewerHandler(BaseHTTPRequestHandler):
     def send_page(self):
         template = (PLUGIN_ROOT / "viewer" / "index.html").read_text()
         self.send_bytes(200, "text/html; charset=utf-8", template.replace("__TOKEN__", self.server.token).encode())
+
+    def send_icon(self):
+        self.send_bytes(200, "image/svg+xml", (PLUGIN_ROOT / "viewer" / "favicon.svg").read_bytes())
 
     def send_state(self):
         self.send_json(200, build_state(self.server.directory))
@@ -645,6 +686,20 @@ def command_status(arguments):
     return 1
 
 
+def hand_over_when_a_newer_version_is_installed(server):
+    while True:
+        time.sleep(update_check_seconds())
+        newer = newer_installed_plugin()
+        if newer is not None:
+            server.handover_to = newer
+            server.shutdown()
+            return
+
+
+def hand_over(folder):
+    os.execv(sys.executable, [sys.executable, str(folder / "scripts" / "viewer.py"), "serve"])
+
+
 def command_serve(arguments):
     directory = data_dir()
     directory.mkdir(parents=True, exist_ok=True)
@@ -655,10 +710,14 @@ def command_serve(arguments):
         return 1
     pidfile_path().write_text(json.dumps({"pid": os.getpid(), "port": server.server_port, "version": plugin_version()}))
     signal.signal(signal.SIGTERM, lambda *_: threading.Thread(target=server.shutdown).start())
+    threading.Thread(target=hand_over_when_a_newer_version_is_installed, args=(server,), daemon=True).start()
     try:
         server.serve_forever()
     finally:
         pidfile_path().unlink(missing_ok=True)
+        server.server_close()
+    if server.handover_to is not None:
+        hand_over(server.handover_to)
     return 0
 
 

@@ -395,6 +395,31 @@ test.describe('languages screen', () => {
   });
 });
 
+test.describe('browser tab icon', () => {
+  test('the page links an icon the viewer serves as an image', async ({ page }) => {
+    await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', '/favicon.svg');
+
+    const response = await page.request.get('/favicon.svg');
+
+    expect(response.status()).toBe(200);
+    expect(response.headers()['content-type']).toContain('image/svg+xml');
+  });
+});
+
+test.describe('viewer update', () => {
+  test('the open page reloads itself when the viewer has been updated to a new version', async ({ page }) => {
+    let reloads = 0;
+    page.on('load', () => { reloads += 1; });
+    await page.route('**/api/state', async route => {
+      const response = await route.fetch();
+      const state = await response.json();
+      await route.fulfill({ response, json: { ...state, version: '99.0.0' } });
+    });
+
+    await expect.poll(() => reloads, { timeout: 10_000 }).toBeGreaterThan(0);
+  });
+});
+
 test.describe('projects screen', () => {
   test.beforeEach(async ({ page }) => {
     await page.getByRole('link', { name: 'Projects' }).click();
