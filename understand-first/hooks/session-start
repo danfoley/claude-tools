@@ -78,7 +78,7 @@ pull_from_storage() {
 }
 
 plugin_version() {
-  sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' "${hooks_dir%/*}/.claude-plugin/plugin.json" | head -n 1
+  grep -o '"version"[[:space:]]*:[[:space:]]*"[^"]*"' "${hooks_dir%/*}/.claude-plugin/plugin.json" 2>/dev/null | head -n 1 | sed 's/.*:[[:space:]]*"\(.*\)"/\1/'
 }
 
 release_notes_for() {
@@ -164,7 +164,7 @@ announce_startup
 rules="$(<"${hooks_dir}/core-rules.md")"
 
 CONTEXT_LIMIT=10000
-CONTEXT_MARGIN=700
+CONTEXT_MARGIN=300
 MINIMUM_SUMMARY_BUDGET=400
 
 ledger_summary() {
@@ -174,16 +174,32 @@ ledger_summary() {
     || printf '%s' "(the ledger summary is unavailable: open the ledger file at the path above before any concept work, and do not create a new ledger)"
 }
 
-summary_budget_for() {
-  local budget=$(( CONTEXT_LIMIT - CONTEXT_MARGIN - ${#1} ))
-  [ "$budget" -ge "$MINIMUM_SUMMARY_BUDGET" ] || budget="$MINIMUM_SUMMARY_BUDGET"
-  printf '%s' "$budget"
+escaped_length() {
+  local escaped
+  escaped="$(escape_for_json "$1")"
+  printf '%s' "${#escaped}"
+}
+
+summary_that_fits() {
+  local before_length budget summary overshoot
+  before_length="$(escaped_length "$1")"
+  budget=$(( CONTEXT_LIMIT - CONTEXT_MARGIN - before_length ))
+  while :; do
+    [ "$budget" -ge "$MINIMUM_SUMMARY_BUDGET" ] || budget="$MINIMUM_SUMMARY_BUDGET"
+    summary="$(ledger_summary "$budget")"
+    overshoot=$(( before_length + $(escaped_length "$summary") - (CONTEXT_LIMIT - CONTEXT_MARGIN) ))
+    if [ "$overshoot" -le 0 ] || [ "$budget" -le "$MINIMUM_SUMMARY_BUDGET" ]; then
+      printf '%s' "$summary"
+      return 0
+    fi
+    budget=$(( budget - overshoot - 50 ))
+  done
 }
 
 context_before_ledger="${rules}"${storage_notice:+$'\n\n'"${storage_notice}"}$'\n\n'"Ledger path: ${ledger_path}"$'\n'"Event log path: ${events_path}"$'\n'"Source map: ${hooks_dir%/*}/sources.md"$'\n'"Added sources: ${data_dir}/sources-added.md"$'\n'"Work log: ${data_dir}/work.md"${viewer_url:+$'\n'"Live viewer: ${viewer_url}"}$'\n\n'"Ledger summary:"$'\n'
 
 if [ -r "$ledger_path" ]; then
-  ledger="$(ledger_summary "$(summary_budget_for "$context_before_ledger")")"
+  ledger="$(summary_that_fits "$context_before_ledger")"
 elif [ -e "$ledger_path" ]; then
   ledger="(the ledger file exists but cannot be read: tell the learner, and do not create a new ledger or overwrite it)"
 else

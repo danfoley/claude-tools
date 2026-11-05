@@ -4,6 +4,10 @@
 - A lost or damaged sync history no longer duplicates your events or loses local work: the old file is saved and you are told.
 - The session start pull gives up after 15 seconds instead of hanging.
 - Saving a file no longer fails or loses data when two things write at the same moment, and logging an event now appends to the log instead of rewriting it. Windows line endings and bytes that are not valid text survive a save.
+- A viewer on another port can no longer stop or replace your real viewer, and the viewer keeps updating itself after an old plugin folder is deleted. Bad numbers or odd lines in your files no longer crash the page.
+- The sync lock, schedule and sync history are safer when two things run at once, and secrets in storage settings are hidden.
+- The stats export, status line and session start handle a byte order mark, Windows line endings and one-line plugin files.
+- The rules now say how to rename a concept without orphaning the work log, how to write events safely, and that nothing is committed or pushed before you have explained the change back.
 - Turning storage off now forgets what was synced, so a new backend receives everything.
 
 ## 0.13.0

@@ -3,17 +3,11 @@ import json
 import sys
 from pathlib import Path
 
-from statuses import canonical_status
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-LEDGER_FIELDS = {
-    "status": "status",
-    "study": "study",
-    "last verified": "lastVerified",
-    "applied": "applied",
-    "in the learner's words": "words",
-    "recall question": "recallQuestion",
-}
-EXAMPLE_PREFIX = "  - "
+import ledger_parse  # noqa: E402
+
+EXAMPLE_LABEL_SEPARATOR = " | "
 
 
 def main():
@@ -26,48 +20,52 @@ def main():
     print(f"concepts={len(concepts)} events={len(events)}")
 
 
+def read_text(path):
+    return path.read_text(encoding="utf-8", errors="replace")
+
+
 def read_concepts(ledger_path):
     if not ledger_path.exists():
         return []
-    concepts = []
-    for line in ledger_path.read_text().splitlines():
-        if line.startswith("### "):
-            concepts.append(empty_concept(line[4:].strip()))
-        elif concepts and line.startswith(EXAMPLE_PREFIX):
-            concepts[-1]["examples"].append(line[len(EXAMPLE_PREFIX):].strip())
-        elif concepts and line.startswith("- "):
-            add_field(concepts[-1], line[2:])
-    return [with_example_summary(with_canonical_status(concept)) for concept in concepts]
+    return [concept_row(concept) for concept in ledger_parse.parse_ledger(read_text(ledger_path))["concepts"]]
 
 
-def with_canonical_status(concept):
-    return {**concept, "status": canonical_status(concept["status"])}
+def concept_row(concept):
+    return {
+        "concept": concept["name"],
+        "status": concept["status"],
+        "study": concept["study"],
+        "lastVerified": concept["verified"],
+        "applied": applied_summary(concept["applied"]),
+        "words": concept["words"],
+        "recallQuestion": concept["recall"],
+        "examples": concept["exampleNotes"],
+        "exampleCount": concept["examples"],
+        "exampleLabels": "; ".join(example_label(note) for note in concept["exampleNotes"]),
+    }
 
 
-def empty_concept(name):
-    row = dict.fromkeys(LEDGER_FIELDS.values(), "")
-    row["concept"] = name
-    row["examples"] = []
-    return row
+def applied_summary(applied):
+    return "; ".join(f"{language}: {note}" for language, note in applied.items())
 
 
-def with_example_summary(concept):
-    labels = [example.partition(":")[0] for example in concept["examples"]]
-    return {**concept, "exampleCount": len(labels), "exampleLabels": "; ".join(labels)}
-
-
-def add_field(concept, line):
-    label, _, value = line.partition(":")
-    field = LEDGER_FIELDS.get(label.strip())
-    if field:
-        concept[field] = value.strip()
+def example_label(note):
+    return note.partition(EXAMPLE_LABEL_SEPARATOR)[0] if EXAMPLE_LABEL_SEPARATOR in note else note.partition(":")[0]
 
 
 def read_events(events_path):
     if not events_path.exists():
         return []
-    lines = [line for line in events_path.read_text().splitlines() if line.strip()]
-    return [event_row(json.loads(line)) for line in lines]
+    lines = [line for line in read_text(events_path).splitlines() if line.strip()]
+    return [event_row(event) for event in map(parse_event, lines) if event is not None]
+
+
+def parse_event(line):
+    try:
+        event = json.loads(line)
+    except ValueError:
+        return None
+    return event if isinstance(event, dict) else None
 
 
 def event_row(event):

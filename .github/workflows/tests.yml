@@ -20,8 +20,6 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: python3 -m unittest discover -s tests
-        env:
-          PYTHONPATH: understand-first/scripts
 
   browser:
     runs-on: ubuntu-24.04

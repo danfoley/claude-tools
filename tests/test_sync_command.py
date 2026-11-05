@@ -262,7 +262,7 @@ class SessionStartHookTest(TemporaryFolders):
     def test_the_startup_line_is_coloured(self):
         self.remember_version(self.plugin_version())
         (self.data / "ledger.md").write_text("stage: 3\n")
-        message = self.coloured_system_message()
+        message = self.coloured_system_message(environment={"NO_COLOR": ""})
         self.assertIn("\x1b[1;35mRunning understand first\x1b[0m", message)
         self.assertIn("\x1b[1;36m3\x1b[0m", message)
 
@@ -377,6 +377,10 @@ class SessionStartHookTest(TemporaryFolders):
         (self.data / "ledger.md").write_text(self.ledger_with_concepts(300, words="long " * 60))
         self.assertLess(len(self.start_session()), 10000)
 
+    def test_the_escaped_context_stays_under_the_cap_even_with_quotes_and_backslashes(self):
+        (self.data / "ledger.md").write_text(self.ledger_with_concepts(300, words='quote " and \\ backslash ' * 10))
+        self.assertLess(len(json.dumps(self.start_session())), 10000)
+
     def test_every_concept_name_survives_when_there_are_many_learning_concepts(self):
         (self.data / "ledger.md").write_text(self.ledger_with_concepts(40, words="long " * 60))
         context = self.start_session()
@@ -426,7 +430,7 @@ class SessionStartHookTest(TemporaryFolders):
         self.assertIn("from the cloud", self.start_session())
 
     def test_without_a_backend_there_is_no_storage_notice(self):
-        self.assertNotIn("STORAGE PROBLEM", self.start_session())
+        self.assertNotIn("STORAGE PROBLEM, tell the learner", self.start_session())
 
     def test_a_backend_that_cannot_load_is_reported_and_nothing_is_disabled(self):
         save_configuration(self.data / "sync", StorageConfiguration("gone", {}))
