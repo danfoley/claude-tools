@@ -1,3 +1,6 @@
+## 0.14.4
+- The Languages screen no longer comes up blank when the viewer server was started before an update and is older than the page. It now says so and tells you to restart the viewer.
+
 ## 0.14.3
 - An example whose language can't be told from its file ending, such as `composer.json` or a GitHub workflow `.yml`, is now looked up on the web: Claude finds what reads the file and records that language or tool (for example PHP or GitHub Actions), cross-checks it against the example, and asks you when it is not sure. The warning at session start now says so.
 - Format endings such as `.json`, `.yaml` and `.toml` are never tagged automatically, and a test fails if one is added.
