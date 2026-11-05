@@ -63,11 +63,11 @@ const LEDGER_HEAD = [
   '',
 ].join('\n');
 const SEEDED_CONCEPTS: SeededConcept[] = [
-  ['idempotency', 'shaky', { PHP: 'a dispatched-at column per recipient', TypeScript: 'an idempotency key header' }],
-  ['checkpointing', 'explained', { PHP: 'delete each conversation once its emails are queued' }],
-  ['lease-with-expiry', 'shaky', {}],
+  ['idempotency', 'learning', { PHP: 'a dispatched-at column per recipient', TypeScript: 'an idempotency key header' }],
+  ['checkpointing', 'getting it', { PHP: 'delete each conversation once its emails are queued' }],
+  ['lease-with-expiry', 'learning', {}],
   ['failure-isolation', 'new', {}],
-  ['batching', 'explained', {}],
+  ['batching', 'getting it', {}],
 ];
 const SEEDED_EVENTS = [
   { date: '2026-10-24', time: '13:56', event: 'gate-retry', concept: 'idempotency', note: '', language: '' },
@@ -149,26 +149,26 @@ const test = base.extend<{ ledger: Ledger }, { viewerServer: ViewerServer }>({
 
 test.describe('stats screen', () => {
   test('clicking a status in the summary keeps only the concepts with that status', async ({ page }) => {
-    await summaryChip(page, '2 shaky').click();
+    await summaryChip(page, '2 learning').click();
 
     await expect(statsConcepts(page)).toHaveText([/^idempotency/, /^lease-with-expiry/]);
-    await expect(page.getByRole('heading', { name: 'Concepts (2 shaky of 5)' })).toBeVisible();
-    await expect(summaryChip(page, '2 shaky')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('heading', { name: 'Concepts (2 learning of 5)' })).toBeVisible();
+    await expect(summaryChip(page, '2 learning')).toHaveAttribute('aria-pressed', 'true');
   });
 
   test('clicking the same status again brings every concept back', async ({ page }) => {
-    await summaryChip(page, '2 shaky').click();
-    await summaryChip(page, '2 shaky').click();
+    await summaryChip(page, '2 learning').click();
+    await summaryChip(page, '2 learning').click();
 
     await expect(statsConcepts(page)).toHaveText(namesStartingWith(ALL_CONCEPTS));
     await expect(page.getByRole('heading', { name: 'Concepts (5)' })).toBeVisible();
-    await expect(summaryChip(page, '2 shaky')).toHaveAttribute('aria-pressed', 'false');
+    await expect(summaryChip(page, '2 learning')).toHaveAttribute('aria-pressed', 'false');
   });
 
   test('Show all appears only while filtered and clears the filter', async ({ page }) => {
     await expect(page.getByRole('button', { name: 'Show all' })).toBeHidden();
 
-    await summaryChip(page, '2 explained').click();
+    await summaryChip(page, '2 getting it').click();
     await expect(page.getByRole('button', { name: 'Show all' })).toBeVisible();
     await page.getByRole('button', { name: 'Show all' }).click();
 
@@ -191,43 +191,74 @@ test.describe('stats screen', () => {
   });
 
   test('switching from one status to another and back to all keeps working', async ({ page }) => {
-    await test.step('filter by shaky, then by explained', async () => {
-      await summaryChip(page, '2 shaky').click();
-      await summaryChip(page, '2 explained').click();
+    await test.step('filter by learning, then by getting it', async () => {
+      await summaryChip(page, '2 learning').click();
+      await summaryChip(page, '2 getting it').click();
       await expect(statsConcepts(page)).toHaveText([/^checkpointing/, /^batching/]);
     });
     await test.step('clear the filter', async () => {
-      await summaryChip(page, '2 explained').click();
+      await summaryChip(page, '2 getting it').click();
       await expect(statsConcepts(page)).toHaveText(namesStartingWith(ALL_CONCEPTS));
     });
-    await test.step('filter by shaky again', async () => {
-      await summaryChip(page, '2 shaky').click();
+    await test.step('filter by learning again', async () => {
+      await summaryChip(page, '2 learning').click();
       await expect(statsConcepts(page)).toHaveText([/^idempotency/, /^lease-with-expiry/]);
     });
   });
 
   test('the filter works from the keyboard', async ({ page }) => {
-    await summaryChip(page, '2 shaky').focus();
+    await summaryChip(page, '2 learning').focus();
     await page.keyboard.press('Enter');
 
     await expect(statsConcepts(page)).toHaveText([/^idempotency/, /^lease-with-expiry/]);
   });
 
   test('the filter survives a reload', async ({ page }) => {
-    await summaryChip(page, '2 shaky').click();
+    await summaryChip(page, '2 learning').click();
     await page.reload();
 
     await expect(statsConcepts(page)).toHaveText([/^idempotency/, /^lease-with-expiry/]);
   });
 
-  test('a concept added while the filter is on appears on the live refresh if it matches', async ({ page, ledger }) => {
-    await summaryChip(page, '2 shaky').click();
+  test('opening a concept row numbers its examples and explains what, where and why', async ({ page, ledger }) => {
+    ledger.addConcepts(conceptWithExamples('retry-safety', ['sent twice', 'skipped a stored id', 'resumed from a marker']));
+    await expect(statsConcepts(page)).toHaveCount(6, { timeout: 10_000 });
+    const row = statsConcepts(page).filter({ hasText: 'retry-safety' });
+    await expect(row.getByText('skipped a stored id')).toBeHidden();
 
-    ledger.addConcepts(conceptBlock('async-boundaries', 'shaky'), conceptBlock('retries', 'solid'));
+    await row.locator('summary').click();
+
+    await expect(row.getByText('Example 1:', { exact: false })).toBeVisible();
+    await expect(row.getByText('Example 2:', { exact: false })).toBeVisible();
+    await expect(row.getByText('Example 3:', { exact: false })).toBeVisible();
+    await expect(row.getByText('What it is: what 2')).toBeVisible();
+    await expect(row.getByText('Where in the code: where 2')).toBeVisible();
+    await expect(row.getByText('Why it is retry-safety: why 2')).toBeVisible();
+  });
+
+  test('an example written as plain text still shows under its number', async ({ page }) => {
+    await statsConcepts(page).filter({ hasText: 'idempotency' }).locator('summary').click();
+
+    await expect(statsConcepts(page).filter({ hasText: 'idempotency' }).getByText('Example 1: example one (PR 1): something')).toBeVisible();
+  });
+
+  test('an opened concept row stays open when the stats refresh', async ({ page, ledger }) => {
+    await statsConcepts(page).filter({ hasText: 'idempotency' }).locator('summary').click();
+
+    ledger.addConcepts(conceptBlock('retries', 'solid'));
+
+    await expect(statsConcepts(page)).toHaveCount(6, { timeout: 10_000 });
+    await expect(statsConcepts(page).filter({ hasText: 'idempotency' }).getByText('example one (PR 1): something')).toBeVisible();
+  });
+
+  test('a concept added while the filter is on appears on the live refresh if it matches', async ({ page, ledger }) => {
+    await summaryChip(page, '2 learning').click();
+
+    ledger.addConcepts(conceptBlock('async-boundaries', 'learning'), conceptBlock('retries', 'solid'));
 
     await expect(statsConcepts(page)).toHaveText([/^idempotency/, /^lease-with-expiry/, /^async-boundaries/], { timeout: 10_000 });
-    await expect(page.getByRole('heading', { name: 'Concepts (3 shaky of 7)' })).toBeVisible();
-    await expect(summaryChip(page, '3 shaky')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('heading', { name: 'Concepts (3 learning of 7)' })).toBeVisible();
+    await expect(summaryChip(page, '3 learning')).toHaveAttribute('aria-pressed', 'true');
   });
 
   test('the stats screen does not name a language', async ({ page }) => {
@@ -302,13 +333,13 @@ test.describe('languages screen', () => {
 
   test('switching language leaves the stats screen and its status filter alone', async ({ page }) => {
     await page.getByRole('link', { name: 'Stats' }).click();
-    await summaryChip(page, '2 shaky').click();
+    await summaryChip(page, '2 learning').click();
     await page.getByRole('link', { name: 'Languages' }).click();
     await page.getByRole('region', { name: 'Languages' }).getByRole('button', { name: 'TypeScript' }).click();
     await page.getByRole('link', { name: 'Stats' }).click();
 
     await expect(statsConcepts(page)).toHaveText([/^idempotency/, /^lease-with-expiry/]);
-    await expect(page.getByRole('heading', { name: 'Concepts (2 shaky of 5)' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Concepts (2 learning of 5)' })).toBeVisible();
   });
 });
 
@@ -356,8 +387,8 @@ test.describe('recent screen', () => {
 
   test('each concept shows its current status from the ledger', async ({ page }) => {
     await openWork(page, 'PR 449462');
-    await expect(workConcept(page, 'PR 449462', 'idempotency')).toContainText('shaky');
-    await expect(workConcept(page, 'PR 449462', 'batching')).toContainText('explained');
+    await expect(workConcept(page, 'PR 449462', 'idempotency')).toContainText('learning');
+    await expect(workConcept(page, 'PR 449462', 'batching')).toContainText('getting it');
   });
 
   test('a concept status follows the ledger on the live refresh', async ({ page, ledger }) => {
@@ -365,7 +396,7 @@ test.describe('recent screen', () => {
     ledger.setStatus('idempotency', 'solid');
 
     await expect(workConcept(page, 'PR 449462', 'idempotency')).toContainText('solid', { timeout: 10_000 });
-    await expect(workConcept(page, 'PR 449462', 'idempotency')).not.toContainText('shaky');
+    await expect(workConcept(page, 'PR 449462', 'idempotency')).not.toContainText('learning');
   });
 
   test('a concept that is not in the ledger says so', async ({ page }) => {
@@ -392,7 +423,7 @@ test.describe('recent screen', () => {
   });
 
   test('searching by a concept\'s current status finds the work that used a concept in that status', async ({ page }) => {
-    await search(page).fill('shaky');
+    await search(page).fill('learning');
 
     await expect(workTitles(page)).toHaveText(['PR 449462: bulk messages sent in batch jobs']);
   });
@@ -632,6 +663,29 @@ test.describe('recent screen: search across everything', () => {
     await expect(matchedConcepts(page).first().getByText('what is lease-with-expiry?')).toBeVisible();
   });
 
+  test('a matched concept lists its published sources as links', async ({ page, ledger }) => {
+    const sourceLine = '- source: Timeouts, retries and backoff | https://example.com/retries | guide | checked 2026-11-05\n';
+    ledger.addConcepts(conceptBlock('retries-with-backoff', 'learning') + sourceLine);
+
+    await search(page).fill('retries-with-backoff');
+    await page.getByRole('button', { name: 'Expand all' }).click();
+
+    const link = matchedConcepts(page).first().getByRole('link', { name: 'Timeouts, retries and backoff' });
+    await expect(link).toHaveAttribute('href', 'https://example.com/retries');
+    await expect(matchedConcepts(page).first()).toContainText('guide, checked 2026-11-05');
+  });
+
+  test('a source that is not a web link is shown as text and not as a link', async ({ page, ledger }) => {
+    const sourceLine = '- source: Local notes | javascript:alert(1) | guide | checked 2026-11-05\n';
+    ledger.addConcepts(conceptBlock('unsafe-source', 'new') + sourceLine);
+
+    await search(page).fill('unsafe-source');
+    await page.getByRole('button', { name: 'Expand all' }).click();
+
+    await expect(matchedConcepts(page).first()).toContainText('Local notes');
+    await expect(matchedConcepts(page).first().getByRole('link')).toHaveCount(0);
+  });
+
   test('a search finds an activity event by its note', async ({ page }) => {
     await search(page).fill('lowered one rung');
 
@@ -799,6 +853,13 @@ function namesStartingWith(names: string[]): RegExp[] {
   return names.map(name => new RegExp(`^${name}`));
 }
 
+function conceptWithExamples(name: string, examples: string[]): string {
+  const exampleLines = examples.map((example, index) => {
+    const number = index + 1;
+    return `  - ${example} | what: what ${number} | where: where ${number} | why: why ${number}`;
+  });
+  return [`### ${name}`, '- status: new', '- examples:', ...exampleLines, ''].join('\n');
+}
 function conceptBlock(name: string, status: string, applied: Record<string, string> = {}, example = 'something'): string {
   const appliedLines = Object.entries(applied).map(([language, note]) => `- applied in ${language}: ${note}`);
   return [

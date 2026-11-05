@@ -15,8 +15,8 @@
     --accent: #2457c5;
     --accent-fg: #ffffff;
     --new: #5b6470;
-    --shaky: #9a5b00;
-    --explained: #1f5fa8;
+    --learning: #9a5b00;
+    --getting-it: #1f5fa8;
     --solid: #1a7a3f;
     --danger: #b3261e;
     color-scheme: light;
@@ -24,14 +24,14 @@
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       --bg: #14171b; --panel: #1c2026; --fg: #e8eaed; --muted: #9aa3ae; --line: #2d333b;
-      --accent: #7aa2f7; --accent-fg: #101319; --new: #9aa3ae; --shaky: #f0b24a;
-      --explained: #7cb8f2; --solid: #5fcf8a; --danger: #ff8a80; color-scheme: dark;
+      --accent: #7aa2f7; --accent-fg: #101319; --new: #9aa3ae; --learning: #f0b24a;
+      --getting-it: #7cb8f2; --solid: #5fcf8a; --danger: #ff8a80; color-scheme: dark;
     }
   }
   :root[data-theme="dark"] {
     --bg: #14171b; --panel: #1c2026; --fg: #e8eaed; --muted: #9aa3ae; --line: #2d333b;
-    --accent: #7aa2f7; --accent-fg: #101319; --new: #9aa3ae; --shaky: #f0b24a;
-    --explained: #7cb8f2; --solid: #5fcf8a; --danger: #ff8a80; color-scheme: dark;
+    --accent: #7aa2f7; --accent-fg: #101319; --new: #9aa3ae; --learning: #f0b24a;
+    --getting-it: #7cb8f2; --solid: #5fcf8a; --danger: #ff8a80; color-scheme: dark;
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
@@ -54,8 +54,8 @@
   .step.done { background: var(--accent); }
   .chips { display: flex; flex-wrap: wrap; gap: 8px; }
   .chip { border: 1px solid currentColor; border-radius: 999px; padding: 1px 10px; font-size: 13px; white-space: nowrap; background: transparent; color: var(--fg); cursor: pointer; }
-  .chip.new { color: var(--new); } .chip.shaky { color: var(--shaky); }
-  .chip.explained { color: var(--explained); } .chip.solid { color: var(--solid); }
+  .chip.new { color: var(--new); } .chip.learning { color: var(--learning); }
+  .chip.getting-it { color: var(--getting-it); } .chip.solid { color: var(--solid); }
   .chip:hover { background: color-mix(in srgb, currentColor 10%, transparent); }
   .chip.static { cursor: default; }
   .chip.static:hover { background: transparent; }
@@ -89,6 +89,19 @@
   .row:first-of-type { border-top: 0; }
   .row .name { font-weight: 600; overflow-wrap: anywhere; }
   .row .detail { grid-column: 1 / -1; color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
+  .concept-row { padding: 10px 0; border-top: 1px solid var(--line); }
+  .concept-row:first-of-type { border-top: 0; }
+  .concept-row summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; cursor: pointer; list-style: none; }
+  .concept-row summary::-webkit-details-marker { display: none; }
+  .concept-row summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 4px; }
+  .concept-row summary .name { font-weight: 600; overflow-wrap: anywhere; }
+  .concept-row summary .name::before { content: "\25B8"; display: inline-block; width: 1.2em; color: var(--muted); }
+  .concept-row details[open] > summary .name::before { content: "\25BE"; }
+  .concept-row summary .detail { grid-column: 1 / -1; color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
+  .concept-row .body { display: grid; gap: 8px; margin-top: 8px; }
+  .concept-row .field { overflow-wrap: anywhere; }
+  .concept-row .example { color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
+  .example-detail { padding-left: 1.2em; }
   .event { display: grid; grid-template-columns: 8.5em minmax(0, 1fr); gap: 4px 12px; padding: 6px 0; border-top: 1px solid var(--line); font-size: 14px; }
   .event:first-of-type { border-top: 0; }
   .event .when { color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -134,7 +147,8 @@
   var SCREENS = ['stats', 'recent', 'languages', 'settings'];
   var UNDERSTANDING_LEVELS = ['understood', 'partly', 'not yet', 'skipped', 'not assessed'];
   var WORK_KINDS = ['built', 'walked through', 'reviewed'];
-  var UNDERSTANDING_TONES = { 'understood': 'solid', 'partly': 'shaky', 'not yet': 'bad', 'skipped': 'shaky' };
+  var UNDERSTANDING_TONES = { 'understood': 'solid', 'partly': 'learning', 'not yet': 'bad', 'skipped': 'learning' };
+  var EXAMPLE_LABELS = { 'what': 'What it is', 'where': 'Where in the code' };
   var recentQuery = '';
   var understandingFilter = '';
   var kindFilter = '';
@@ -247,12 +261,16 @@
     var isActive = statusFilter === status;
     return el('button', {
       type: 'button',
-      'class': 'chip ' + status + (isActive ? ' active' : ''),
+      'class': 'chip ' + statusClass(status) + (isActive ? ' active' : ''),
       'aria-pressed': isActive ? 'true' : 'false',
       title: isActive ? 'Show all concepts' : 'Show only ' + status + ' concepts',
       onclick: function () { setStatusFilter(isActive ? '' : status); },
       text: label
     });
+  }
+
+  function statusClass(status) {
+    return status.replace(/ /g, '-');
   }
 
   function statusChip(status) {
@@ -269,7 +287,7 @@
   }
 
   function countByStatus(concepts) {
-    var counts = { new: 0, shaky: 0, explained: 0, solid: 0 };
+    var counts = { 'new': 0, 'learning': 0, 'getting it': 0, 'solid': 0 };
     concepts.forEach(function (concept) { counts[concept.status || 'new'] = (counts[concept.status || 'new'] || 0) + 1; });
     return counts;
   }
@@ -292,12 +310,13 @@
     var visible = state.concepts.filter(hasStatus);
     var rows = visible.map(function (concept) {
       var detail = concept.words || 'No explanation of your own yet.';
-      var meta = [concept.verified ? 'verified ' + concept.verified : '', concept.examples + ' example' + (concept.examples === 1 ? '' : 's')].filter(Boolean).join(' · ');
-      return el('div', { 'class': 'row', role: 'listitem' },
+      var meta = [concept.verified ? 'verified ' + concept.verified : '', concept.study ? 'studied ' + concept.study : '', concept.examples + ' example' + (concept.examples === 1 ? '' : 's')].filter(Boolean).join(' · ');
+      var summary = [
         el('div', { 'class': 'name', text: concept.name }),
         statusChip(concept.status),
         el('div', { 'class': 'detail', text: detail + (meta ? ' (' + meta + ')' : '') })
-      );
+      ];
+      return el('div', { 'class': 'concept-row', role: 'listitem' }, disclosure(conceptKey(concept), summary, el('div', { 'class': 'body' }, conceptFields(concept, []))));
     });
     var heading = statusFilter ? visible.length + ' ' + statusFilter + ' of ' + state.concepts.length : String(state.concepts.length);
     var emptyText = statusFilter ? 'No ' + statusFilter + ' concepts.' : 'None yet.';
@@ -413,7 +432,7 @@
     var status = liveStatus(statuses, concept.name);
     return el('div', { 'class': 'work-concept', role: 'listitem' },
       el('span', { 'class': 'name' }, marked(concept.name, tokens)),
-      el('span', { 'class': 'chip static ' + (status === 'not in ledger' ? 'new' : status), title: 'Current status in your ledger', text: status }),
+      el('span', { 'class': 'chip static ' + statusClass(status === 'not in ledger' ? 'new' : status), title: 'Current status in your ledger', text: status }),
       concept.use ? el('div', { 'class': 'detail' }, marked(concept.use, tokens)) : null
     );
   }
@@ -464,16 +483,50 @@
   function conceptMatchCard(concept, tokens) {
     var summary = [
       el('span', { 'class': 'title' }, marked(concept.name, tokens)),
-      el('div', { 'class': 'chips' }, el('span', { 'class': 'chip static ' + (concept.status || 'new'), text: concept.status || 'new' }))
+      el('div', { 'class': 'chips' }, el('span', { 'class': 'chip static ' + statusClass(concept.status || 'new'), text: concept.status || 'new' }))
     ];
-    var body = el('div', { 'class': 'body' },
+    var body = el('div', { 'class': 'body' }, conceptFields(concept, tokens), appliedFields(concept, tokens));
+    return el('div', { 'class': 'card work', role: 'listitem' }, disclosure(conceptKey(concept), summary, body));
+  }
+
+  function conceptFields(concept, tokens) {
+    return [
       labelledField('In your words', concept.words, tokens),
       labelledField('Recall question', concept.recall, tokens),
       labelledField('Last verified', concept.verified, tokens),
-      concept.exampleNotes.map(function (note) { return el('div', { 'class': 'example' }, marked(note, tokens)); }),
-      Object.keys(concept.applied).map(function (language) { return labelledField('Applied in ' + language, concept.applied[language], tokens); })
+      labelledField('Studied (does not count toward your level)', concept.study, tokens),
+      sourceFields(concept),
+      concept.exampleNotes.map(function (note, index) { return exampleBlock(concept, note, index, tokens); })
+    ];
+  }
+
+  function sourceFields(concept) {
+    return concept.sources.map(function (source) {
+      var title = source.url ? el('a', { href: source.url, target: '_blank', rel: 'noopener noreferrer', text: source.title }) : source.title;
+      var meta = [source.kind, source.checked ? 'checked ' + source.checked : ''].filter(Boolean).join(', ');
+      return el('div', { 'class': 'field' }, el('b', { text: 'Source: ' }), title, meta ? ' (' + meta + ')' : '');
+    });
+  }
+
+  function exampleBlock(concept, note, index, tokens) {
+    var parts = note.split(' | ');
+    return el('div', { 'class': 'example' },
+      el('b', { text: 'Example ' + (index + 1) + ': ' }),
+      marked(parts[0], tokens),
+      parts.slice(1).map(function (part) { return exampleDetail(concept, part, tokens); })
     );
-    return el('div', { 'class': 'card work', role: 'listitem' }, disclosure(conceptKey(concept), summary, body));
+  }
+
+  function exampleDetail(concept, part, tokens) {
+    var colon = part.indexOf(': ');
+    if (colon < 0) return el('div', { 'class': 'example-detail' }, marked(part, tokens));
+    var key = part.slice(0, colon);
+    var label = key === 'why' ? 'Why it is ' + concept.name : EXAMPLE_LABELS[key] || key;
+    return el('div', { 'class': 'example-detail' }, el('b', { text: label + ': ' }), marked(part.slice(colon + 2), tokens));
+  }
+
+  function appliedFields(concept, tokens) {
+    return Object.keys(concept.applied).map(function (language) { return labelledField('Applied in ' + language, concept.applied[language], tokens); });
   }
 
   function eventMatchRow(event, tokens) {
@@ -630,7 +683,7 @@
       var note = concept.applied[language];
       return el('div', { 'class': 'row', role: 'listitem' },
         el('div', { 'class': 'name', text: concept.name }),
-        el('span', { 'class': 'chip static ' + (concept.status || 'new'), text: concept.status || 'new' }),
+        el('span', { 'class': 'chip static ' + statusClass(concept.status || 'new'), text: concept.status || 'new' }),
         el('div', { 'class': note ? 'detail' : 'detail none', text: note || 'Not applied in ' + language + ' yet.' })
       );
     });

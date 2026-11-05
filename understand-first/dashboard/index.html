@@ -17,8 +17,8 @@
   .uf th, .uf td { padding: var(--cds-pad-xs) var(--cds-pad-sm); border-bottom: 1px solid var(--color-border-line); vertical-align: top; }
   .uf-pill { display: inline-block; padding: 0 var(--cds-pad-sm); border-radius: 999px; border: 1px solid currentColor; font-size: var(--cds-font-size-caption); }
   .uf-pill[data-status="solid"] { color: var(--color-ok); }
-  .uf-pill[data-status="explained"] { color: var(--color-fg); }
-  .uf-pill[data-status="shaky"] { color: var(--color-warn); }
+  .uf-pill[data-status="getting it"] { color: var(--color-fg); }
+  .uf-pill[data-status="learning"] { color: var(--color-warn); }
   .uf-pill[data-status="new"] { color: var(--color-fg-muted); }
   .uf-chart { position: relative; min-height: 11rem; }
   .uf-chart svg { display: block; width: 100%; height: 11rem; }
@@ -152,7 +152,7 @@
     const passed = countOf(events, 'test-passed');
     const failed = countOf(events, 'test-failed');
     el('uf-cards').replaceChildren(
-      card('Solid concepts', String(statusCount(concepts, 'solid')) + ' / ' + concepts.length, statusCount(concepts, 'explained') + ' explained, ' + statusCount(concepts, 'shaky') + ' shaky'),
+      card('Solid concepts', String(statusCount(concepts, 'solid')) + ' / ' + concepts.length, statusCount(concepts, 'getting it') + ' getting it, ' + statusCount(concepts, 'learning') + ' learning'),
       card('Tests passed', passed + ' / ' + (passed + failed), failed + ' failed'),
       card('Recall hit rate', recallHitRate(events), countOf(events, 'recall') + ' questions asked'),
       card('Delegated', String(countOf(events, 'delegated')), 'parts handed to Claude'),
@@ -162,10 +162,10 @@
 
   const renderTakeaway = (events, concepts) => {
     const solid = statusCount(concepts, 'solid');
-    const explained = statusCount(concepts, 'explained');
+    const gettingIt = statusCount(concepts, 'getting it');
     const text = concepts.length === 0
       ? 'No concepts in the ledger yet.'
-      : solid + ' of ' + concepts.length + ' concepts solid, ' + explained + ' explained. ' + events.length + ' events in this view.';
+      : solid + ' of ' + concepts.length + ' concepts solid, ' + gettingIt + ' getting it. ' + events.length + ' events in this view.';
     el('uf-takeaway').textContent = text;
   };
 
