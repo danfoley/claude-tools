@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 import sys
+import time
 from collections.abc import Callable
 from pathlib import Path
 
 from storage import (
     BackendUnavailableError,
     Sync,
+    SyncProblem,
     SyncSchedule,
     SyncState,
     data_directory,
@@ -15,12 +17,17 @@ from storage import (
     sync_directory,
     sync_from_configuration,
 )
+from storage.backups import Backups
+from storage.local_folder import LocalFolder
+from storage.sync import EVENTS_FILE, SYNCED_FILES
+from storage.timeout import run_with_timeout
 from storage.management import configure_storage, disable_storage
 
+PULL_TIMEOUT_SECONDS = 15
 EXIT_OK = 0
 EXIT_NEEDS_ATTENTION = 2
 EXIT_BACKEND_UNREACHABLE = 3
-USAGE = "usage: sync.py pull | push | tick | status | disable | configure <backend> [setting=value ...]"
+USAGE = "usage: sync.py pull | push | tick | backup | status | disable | configure <backend> [setting=value ...]"
 CONFIGURE_USAGE = "usage: sync.py configure <backend> [setting=value ...]"
 
 
@@ -36,7 +43,7 @@ def main(arguments: list[str], data_dir: Path) -> int:
         return EXIT_NEEDS_ATTENTION
     try:
         command()
-    except (BackendUnavailableError, UsageError) as problem:
+    except (BackendUnavailableError, UsageError, SyncProblem) as problem:
         print(problem)
         return EXIT_NEEDS_ATTENTION
     except Exception as problem:
@@ -47,7 +54,8 @@ def main(arguments: list[str], data_dir: Path) -> int:
 
 def commands(data_dir: Path, options: list[str]) -> dict[str, Callable[[], None]]:
     return {
-        "pull": lambda: with_sync(data_dir, Sync.pull),
+        "pull": lambda: with_sync(data_dir, pull_with_timeout),
+        "backup": lambda: back_up_local_files(data_dir),
         "push": lambda: with_sync(data_dir, Sync.push),
         "tick": lambda: with_sync(data_dir, lambda sync: SyncSchedule(sync).tick()),
         "status": lambda: show_status(data_dir),
@@ -60,6 +68,24 @@ def with_sync(data_dir: Path, action: Callable[[Sync], object]) -> None:
     sync = sync_from_configuration(data_dir)
     if sync is not None:
         action(sync)
+
+
+def pull_with_timeout(sync: Sync) -> None:
+    run_with_timeout(PULL_TIMEOUT_SECONDS, lambda: pull_and_report_notices(sync))
+
+
+def back_up_local_files(data_dir: Path) -> None:
+    backups = Backups(LocalFolder(data_dir), time.time)
+    for name in (*SYNCED_FILES, EVENTS_FILE):
+        backups.keep(name)
+
+
+def pull_and_report_notices(sync: Sync) -> None:
+    try:
+        sync.pull()
+    finally:
+        for notice in sync.notices:
+            print(notice)
 
 
 def show_status(data_dir: Path) -> None:

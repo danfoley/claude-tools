@@ -17,7 +17,7 @@ from .configuration import (
     sync_from_configuration,
 )
 from .discovery import Discovered, discover_backends
-from .sync_state import SyncState
+from .sync_state import STATE_FILE, SyncState
 
 MAX_SETTING_LENGTH = 500
 REACHABILITY_PROBE_FILE = "ledger.md"
@@ -42,6 +42,7 @@ def configure_storage(data_dir: Path, backend_name: str, settings: Any) -> None:
 
 def disable_storage(data_dir: Path) -> None:
     remove_configuration(sync_directory(data_dir))
+    (sync_directory(data_dir) / STATE_FILE).unlink(missing_ok=True)
 
 
 def sync_now(data_dir: Path) -> None:

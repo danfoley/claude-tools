@@ -14,6 +14,14 @@ def hash_of(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()
 
 
+def is_well_formed(stored: Any) -> bool:
+    return (
+        isinstance(stored, dict)
+        and isinstance(stored.get("hashes", {}), dict)
+        and isinstance(stored.get("events_cursor", 0), int)
+    )
+
+
 class SyncState:
     def __init__(self, directory: Path) -> None:
         self.folder = LocalFolder(directory)
@@ -68,10 +76,12 @@ class SyncState:
         self.save()
 
     def load(self) -> dict[str, Any]:
+        defaults: dict[str, Any] = {"hashes": {}, "events_cursor": 0}
         try:
-            return {"hashes": {}, "events_cursor": 0, **json.loads(self.folder.get(STATE_FILE) or "")}
+            stored = json.loads(self.folder.get(STATE_FILE) or "")
         except (ValueError, TypeError):
-            return {"hashes": {}, "events_cursor": 0}
+            return defaults
+        return {**defaults, **stored} if is_well_formed(stored) else defaults
 
     def save(self) -> None:
         self.folder.put(STATE_FILE, json.dumps(self.recorded))

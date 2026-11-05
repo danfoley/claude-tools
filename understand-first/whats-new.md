@@ -1,3 +1,10 @@
+## 0.14.0
+- Your ledger, work log and events are backed up before any sync overwrites them, and at every session start (newest 10 of each kept in the backups folder next to the ledger).
+- Sync no longer replaces your files with an empty or much smaller copy from the backend, and no longer pushes an empty or much smaller local file. It tells you instead.
+- A lost or damaged sync history no longer duplicates your events or loses local work: the old file is saved and you are told.
+- The session start pull gives up after 15 seconds instead of hanging.
+- Turning storage off now forgets what was synced, so a new backend receives everything.
+
 ## 0.13.0
 - Session start now gives Claude a short summary of your ledger (each concept with its status) instead of the whole file, kept under the 10,000 character limit on hook output so it is never cut off. Claude opens the full entry when a concept comes up.
 - A ledger that exists but cannot be read, or a summary that fails, no longer makes Claude start a fresh ledger or paste the whole file.

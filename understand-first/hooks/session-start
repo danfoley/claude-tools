@@ -68,8 +68,12 @@ pull_from_storage() {
   local output status=0
   PATH="$PATH:/usr/bin:/usr/local/bin:/opt/homebrew/bin"
   command -v python3 >/dev/null 2>&1 || return 0
+  python3 "${hooks_dir%/*}/scripts/sync.py" backup >/dev/null 2>&1 || true
   output="$(python3 "${hooks_dir%/*}/scripts/sync.py" pull 2>&1)" || status=$?
-  [ "$status" -eq 0 ] && return 0
+  if [ "$status" -eq 0 ]; then
+    [ -z "$output" ] || storage_notice="STORAGE NOTICE, tell the learner: ${output}"
+    return 0
+  fi
   storage_notice="STORAGE PROBLEM, tell the learner before anything else: ${output}"$'\n'"Their data is safe in their storage backend, but this session started from the local copy, which may be missing or out of date. Ask whether to carry on with local storage only. Only if they say yes, run: python3 ${hooks_dir%/*}/scripts/sync.py disable. Never run it without their answer."
 }
 

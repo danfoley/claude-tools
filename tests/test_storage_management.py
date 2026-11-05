@@ -33,6 +33,17 @@ class StorageManagementTest(unittest.TestCase):
             storage_overview(self.data)["configured"], {"backend": "folder", "settings": {"directory": str(self.cloud)}}
         )
 
+    def test_disabling_forgets_what_was_synced_so_a_new_backend_receives_everything(self):
+        configure_storage(self.data, "folder", {"directory": str(self.cloud)})
+        (self.data / "ledger.md").write_text("stage: 1\n")
+        sync_now(self.data)
+        disable_storage(self.data)
+        new_cloud = self.cloud.parent / "new-cloud"
+        new_cloud.mkdir()
+        configure_storage(self.data, "folder", {"directory": str(new_cloud)})
+        sync_now(self.data)
+        self.assertEqual((new_cloud / "ledger.md").read_text(), "stage: 1\n")
+
     def test_the_overview_shows_the_last_sync_problem(self):
         SyncState(self.data / "sync").last_error = "the backend is down"
         self.assertEqual(storage_overview(self.data)["lastError"], "the backend is down")

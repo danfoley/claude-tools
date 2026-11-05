@@ -406,6 +406,20 @@ class SessionStartHookTest(TemporaryFolders):
         self.assertLess(len(context), 10000)
         self.assertIn("summary is unavailable", context)
 
+    def test_every_session_start_backs_up_the_ledger(self):
+        (self.data / "ledger.md").write_text(self.ledger_with_concepts(2))
+        self.start_session()
+        backups = list((self.data / "backups").glob("ledger.md.*"))
+        self.assertEqual([path.read_text() for path in backups], [self.ledger_with_concepts(2)])
+
+    def test_a_pull_that_replaces_a_local_file_is_announced(self):
+        (self.cloud / "ledger.md").write_text(self.ledger_with_concepts(3))
+        (self.data / "ledger.md").write_text(self.ledger_with_concepts(2))
+        self.configure_folder_backend()
+        context = self.start_session()
+        self.assertIn("STORAGE NOTICE", context)
+        self.assertIn("backups folder", context)
+
     def test_pulls_the_backend_ledger_before_reading_it(self):
         (self.cloud / "ledger.md").write_text("stage: 4\n\n# Concept ledger\n\n### from the cloud\n- status: new\n")
         self.configure_folder_backend()
