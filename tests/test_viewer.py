@@ -21,6 +21,8 @@ primary-language: PHP
 
 ### idempotency
 - status: shaky
+- study: partly (2026-10-30), studied but not yet used in work
+- source: Idempotent Receiver | https://example.com/irp | guide | checked 2026-10-24
 - last verified: 2026-10-24
 - in the learner's words: doing it twice is safe
 - recall question: what makes a retry safe?
@@ -97,6 +99,47 @@ class ViewerTest(unittest.TestCase):
         ])
         self.assertEqual(state["concepts"][0]["examples"], 2)
         self.assertEqual(state["eventCount"], 1)
+
+    def test_state_shows_an_old_status_name_as_its_new_name(self):
+        _, text = self.request("GET", "/api/state")
+        self.assertEqual(json.loads(text)["concepts"][0]["status"], "learning")
+
+    def test_state_lists_the_published_sources_of_a_concept(self):
+        _, text = self.request("GET", "/api/state")
+        self.assertEqual(json.loads(text)["concepts"][0]["sources"], [{
+            "title": "Idempotent Receiver",
+            "url": "https://example.com/irp",
+            "kind": "guide",
+            "checked": "2026-10-24",
+        }])
+
+    def test_a_source_without_a_web_link_has_no_url(self):
+        source = viewer.parse_source("Local notes | javascript:alert(1) | guide | checked 2026-11-05")
+        self.assertEqual(source["url"], "")
+
+    def test_an_installed_plugin_source_is_kept_as_text_without_a_url(self):
+        source = viewer.parse_source("playwright-skill | plugin:playwright-skill | plugin | checked 2026-11-05")
+        self.assertEqual(source, {"title": "playwright-skill", "url": "", "kind": "plugin", "checked": "2026-11-05"})
+
+    def test_a_plain_http_link_is_kept_as_the_url(self):
+        source = viewer.parse_source("Old docs | http://example.com/docs | official | checked 2026-11-05")
+        self.assertEqual(source["url"], "http://example.com/docs")
+
+    def test_extra_separators_in_a_source_are_ignored(self):
+        source = viewer.parse_source("A | https://example.com | guide | checked 2026-11-05 | stray | more")
+        self.assertEqual(source["checked"], "2026-11-05")
+
+    def test_a_source_without_a_checked_date_has_an_empty_one(self):
+        source = viewer.parse_source("Spec | https://example.com | standard")
+        self.assertEqual((source["kind"], source["checked"]), ("standard", ""))
+
+    def test_a_source_with_only_a_title_still_parses(self):
+        self.assertEqual(viewer.parse_source("PSR-12"), {"title": "PSR-12", "url": "", "kind": "", "checked": ""})
+
+    def test_state_carries_the_study_estimate_of_a_concept(self):
+        _, text = self.request("GET", "/api/state")
+        study = json.loads(text)["concepts"][0]["study"]
+        self.assertEqual(study, "partly (2026-10-30), studied but not yet used in work")
 
     def test_state_carries_the_text_of_each_concept_example(self):
         _, text = self.request("GET", "/api/state")

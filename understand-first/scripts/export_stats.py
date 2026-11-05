@@ -3,8 +3,11 @@ import json
 import sys
 from pathlib import Path
 
+from statuses import canonical_status
+
 LEDGER_FIELDS = {
     "status": "status",
+    "study": "study",
     "last verified": "lastVerified",
     "applied": "applied",
     "in the learner's words": "words",
@@ -34,7 +37,11 @@ def read_concepts(ledger_path):
             concepts[-1]["examples"].append(line[len(EXAMPLE_PREFIX):].strip())
         elif concepts and line.startswith("- "):
             add_field(concepts[-1], line[2:])
-    return [with_example_summary(concept) for concept in concepts]
+    return [with_example_summary(with_canonical_status(concept)) for concept in concepts]
+
+
+def with_canonical_status(concept):
+    return {**concept, "status": canonical_status(concept["status"])}
 
 
 def empty_concept(name):

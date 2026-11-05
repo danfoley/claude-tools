@@ -13,6 +13,7 @@ from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from statuses import canonical_status
 from storage import BackendUnavailableError
 from storage.management import configure_storage, disable_storage, storage_overview, sync_now
 
@@ -22,6 +23,9 @@ STAGE_COUNT = 6
 MAX_BODY_BYTES = 10_000
 EVENTS_SHOWN = 2000
 APPLIED_PREFIX = "- applied in "
+SOURCE_PREFIX = "- source: "
+SOURCE_FIELD_COUNT = 4
+WEB_LINK_PREFIXES = ("https://", "http://")
 WORK_CONCEPT_PREFIX = "  - "
 WORK_UNDERSTANDING_LEVELS = ("understood", "partly", "not yet", "skipped")
 LANGUAGE_NAME = re.compile(r"^[A-Za-z0-9 .+#-]{1,40}$")
@@ -105,19 +109,35 @@ def parse_dial(lines):
     return dial
 
 
+def source_fields(text: str) -> list[str]:
+    fields = [part.strip() for part in text.split(" | ")][:SOURCE_FIELD_COUNT]
+    return fields + [""] * (SOURCE_FIELD_COUNT - len(fields))
+
+
+def parse_source(text: str) -> dict[str, str]:
+    title, url, kind, checked = source_fields(text)
+    return {
+        "title": title,
+        "url": url if url.startswith(WEB_LINK_PREFIXES) else "",
+        "kind": kind,
+        "checked": checked.removeprefix("checked ").strip(),
+    }
+
+
 def parse_concepts(lines):
     fields = {
         "- status: ": "status",
         "- last verified: ": "verified",
         "- in the learner's words: ": "words",
         "- recall question: ": "recall",
+        "- study: ": "study",
     }
     concepts = []
     for line in lines:
         if line.startswith("### "):
             concepts.append({
-                "name": line[4:].strip(), "status": "", "verified": "", "words": "", "recall": "",
-                "examples": 0, "exampleNotes": [], "applied": {},
+                "name": line[4:].strip(), "status": "", "verified": "", "words": "", "recall": "", "study": "",
+                "examples": 0, "exampleNotes": [], "applied": {}, "sources": [],
             })
         elif concepts and line.startswith("  - "):
             concepts[-1]["examples"] += 1
@@ -126,10 +146,14 @@ def parse_concepts(lines):
             language, _, note = line[len(APPLIED_PREFIX):].partition(": ")
             if note.strip():
                 concepts[-1]["applied"][language.strip()] = note.strip()
+        elif concepts and line.startswith(SOURCE_PREFIX):
+            concepts[-1]["sources"].append(parse_source(line[len(SOURCE_PREFIX):]))
         elif concepts:
             for prefix, field in fields.items():
                 if line.startswith(prefix):
                     concepts[-1][field] = line[len(prefix):].strip()
+    for concept in concepts:
+        concept["status"] = canonical_status(concept["status"])
     return concepts
 
 
