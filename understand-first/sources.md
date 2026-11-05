@@ -52,3 +52,23 @@ Where to look a concept up when the work reaches it. This is not a syllabus: loo
 
 ### Testing
 - [Fowler's test pyramid](https://martinfowler.com/bliki/TestPyramid.html): layers of tests and the trade-off between speed and confidence.
+
+### Browser testing
+- [Playwright docs](https://playwright.dev/docs/intro): writing, running and debugging browser tests.
+- [Playwright best practices](https://playwright.dev/docs/best-practices): locators, assertions, isolation and what to avoid.
+
+### Claude Code plugins and hooks
+- [Claude Code plugins](https://code.claude.com/docs/en/plugins): what a plugin is, its skills, commands and hooks, and how it is installed.
+- [Claude Code hooks](https://code.claude.com/docs/en/hooks): the events a hook can listen to and what it can return.
+
+### Languages and shell
+- [PHP manual](https://www.php.net/manual/en/): the language reference and standard library.
+- [TypeScript handbook](https://www.typescriptlang.org/docs/handbook/intro.html): types, generics and the compiler.
+- [Bash reference manual](https://www.gnu.org/software/bash/manual/): quoting, expansion, pipelines and scripting.
+
+### Language style standards and best practices
+- [PSR-12: Extended Coding Style](https://www.php-fig.org/psr/psr-12/): the PHP community's coding style standard.
+- [Google TypeScript style guide](https://google.github.io/styleguide/tsguide.html): conventions and practices for TypeScript.
+- [Google Shell style guide](https://google.github.io/styleguide/shellguide.html): when to use shell and how to write it safely.
+- [ShellCheck wiki](https://www.shellcheck.net/wiki/): the common shell script mistakes and why they are mistakes.
+- [PEP 8](https://peps.python.org/pep-0008/): the Python style guide.
