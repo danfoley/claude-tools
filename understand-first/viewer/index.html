@@ -987,6 +987,10 @@
       replaceChildren(root, [el('div', { 'class': 'card' }, el('div', { text: state.hasLedger ? 'No languages yet. Add one in Settings.' : 'No ledger yet. The first understand-first session creates it.' }))]);
       return;
     }
+    if (state.concepts.some(function (concept) { return !concept.exampleLanguages; })) {
+      replaceChildren(root, [el('div', { 'class': 'card' }, el('div', { text: 'The viewer server is older than this page, so it cannot list languages. Stop it and start a new session to restart it.' }))]);
+      return;
+    }
     replaceChildren(root, [languageSwitcher(active), dialCard(entry), appliedCard(active), languageEventsCard(active)]);
   }
 

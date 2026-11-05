@@ -352,6 +352,20 @@ test.describe('languages screen', () => {
     await expect(languages.getByText('Rung 2 of 4')).toBeVisible();
   });
 
+  test('says the viewer server is older when it sends concepts without example languages', async ({ page }) => {
+    await page.route('**/api/state', async route => {
+      const response = await route.fetch();
+      const state = await response.json();
+      const concepts = state.concepts.map((concept: Record<string, unknown>) =>
+        Object.fromEntries(Object.entries(concept).filter(([field]) => field !== 'exampleLanguages')));
+      await route.fulfill({ response, json: { ...state, concepts } });
+    });
+    await page.reload();
+    await page.getByRole('link', { name: 'Languages' }).click();
+
+    await expect(page.getByRole('region', { name: 'Languages' }).getByText('The viewer server is older than this page')).toBeVisible();
+  });
+
   test('switching language shows that language\'s code dial', async ({ page }) => {
     const languages = page.getByRole('region', { name: 'Languages' });
 
