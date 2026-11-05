@@ -1,3 +1,6 @@
+## 0.11.2
+- The session start line has a blank line above it.
+
 ## 0.11.1
 - The session start line is now in bold and color so it stands out from other plugins' startup output. Set NO_COLOR to turn color off.
 
