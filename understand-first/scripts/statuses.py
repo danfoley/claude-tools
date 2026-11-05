@@ -2,4 +2,5 @@ RENAMED_STATUSES: dict[str, str] = {"shaky": "learning", "explained": "getting i
 
 
 def canonical_status(status: str) -> str:
-    return RENAMED_STATUSES.get(status, status)
+    normalised = status.strip().lower()
+    return RENAMED_STATUSES.get(normalised, normalised)

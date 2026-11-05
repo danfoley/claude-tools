@@ -365,8 +365,49 @@ class SessionStartHookTest(TemporaryFolders):
     def test_the_current_version_has_release_notes(self):
         self.assertTrue(self.release_notes(), "add a section for this version to understand-first/whats-new.md")
 
+    def ledger_with_concepts(self, count, words="w"):
+        entries = "".join(
+            f"### concept-{n}\n- status: learning\n- last verified: 2026-10-24\n- in the learner's words: {words}\n"
+            f"- recall question: {words}\n- examples:\n  - e | what: x\n"
+            for n in range(count)
+        )
+        return "stage: 2\nprimary-language: PHP\n\n## Code dial\n- PHP: rung 1, clean streak 0\n\n# Concept ledger\n\n" + entries
+
+    def test_the_session_context_stays_under_the_hook_output_cap(self):
+        (self.data / "ledger.md").write_text(self.ledger_with_concepts(300, words="long " * 60))
+        self.assertLess(len(self.start_session()), 10000)
+
+    def test_every_concept_name_survives_when_there_are_many_learning_concepts(self):
+        (self.data / "ledger.md").write_text(self.ledger_with_concepts(40, words="long " * 60))
+        context = self.start_session()
+        self.assertLess(len(context), 10000)
+        self.assertIn("concept-39", context)
+
+    def test_control_characters_in_the_ledger_still_give_valid_output(self):
+        (self.data / "ledger.md").write_text(self.ledger_with_concepts(2, words="bad \x01 \x08 \x0c end"))
+        self.assertIn("concept-1", self.start_session())
+
+    def test_invalid_utf8_in_the_ledger_still_gives_valid_output(self):
+        (self.data / "ledger.md").write_bytes(self.ledger_with_concepts(2).encode() + b"\xff\xfe\n")
+        self.assertIn("concept-1", self.start_session())
+
+    def test_a_ledger_that_exists_but_cannot_be_read_is_never_called_missing(self):
+        path = self.data / "ledger.md"
+        path.write_text(self.ledger_with_concepts(2))
+        path.chmod(0)
+        self.addCleanup(path.chmod, 0o644)
+        context = self.start_session()
+        self.assertIn("cannot be read", context)
+        self.assertNotIn("no ledger yet", context)
+
+    def test_a_failing_summary_never_pastes_the_whole_ledger(self):
+        (self.data / "ledger.md").write_text(self.ledger_with_concepts(300, words="long " * 60))
+        context = self.run_hook(environment={"UNDERSTAND_FIRST_SUMMARY_COMMAND": "false"})["hookSpecificOutput"]["additionalContext"]
+        self.assertLess(len(context), 10000)
+        self.assertIn("summary is unavailable", context)
+
     def test_pulls_the_backend_ledger_before_reading_it(self):
-        (self.cloud / "ledger.md").write_text("stage: 4\nfrom the cloud\n")
+        (self.cloud / "ledger.md").write_text("stage: 4\n\n# Concept ledger\n\n### from the cloud\n- status: new\n")
         self.configure_folder_backend()
         self.assertIn("from the cloud", self.start_session())
 

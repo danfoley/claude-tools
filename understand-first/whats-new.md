@@ -1,3 +1,8 @@
+## 0.13.0
+- Session start now gives Claude a short summary of your ledger (each concept with its status) instead of the whole file, kept under the 10,000 character limit on hook output so it is never cut off. Claude opens the full entry when a concept comes up.
+- A ledger that exists but cannot be read, or a summary that fails, no longer makes Claude start a fresh ledger or paste the whole file.
+- Odd characters (control characters, a byte order mark, Windows line endings, a capitalised status) in the ledger no longer break the session start.
+
 ## 0.12.0
 - "Where in the code" now shows the real code as a block with line numbers and the key lines marked. The explanation sits under the block, not inside it. Examples recorded before this keep the old text-only box.
 - New Docs tab in the viewer: what you can say ("I don't know", "skip the gates" and more) and the slash commands, at a glance.

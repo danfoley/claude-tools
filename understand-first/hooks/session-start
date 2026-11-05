@@ -8,8 +8,13 @@ script_dir() {
   esac
 }
 
+clean_text() {
+  LC_ALL=C tr -d '\000-\010\013\014\016-\032\034-\037\177' | if command -v iconv >/dev/null 2>&1; then iconv -c -f UTF-8 -t UTF-8 2>/dev/null; else cat; fi
+}
+
 escape_for_json() {
-  local text="$1"
+  local text
+  text="$(printf '%s' "$1" | clean_text)"
   text="${text//\\/\\\\}"
   text="${text//\"/\\\"}"
   text="${text//$'\033'/\\u001b}"
@@ -154,13 +159,34 @@ announce_startup
 
 rules="$(<"${hooks_dir}/core-rules.md")"
 
+CONTEXT_LIMIT=10000
+CONTEXT_MARGIN=700
+MINIMUM_SUMMARY_BUDGET=400
+
+ledger_summary() {
+  local budget="$1"
+  PATH="$PATH:/usr/bin:/usr/local/bin:/opt/homebrew/bin"
+  "${UNDERSTAND_FIRST_SUMMARY_COMMAND:-python3}" "${hooks_dir%/*}/scripts/ledger_summary.py" "$ledger_path" "$budget" 2>/dev/null \
+    || printf '%s' "(the ledger summary is unavailable: open the ledger file at the path above before any concept work, and do not create a new ledger)"
+}
+
+summary_budget_for() {
+  local budget=$(( CONTEXT_LIMIT - CONTEXT_MARGIN - ${#1} ))
+  [ "$budget" -ge "$MINIMUM_SUMMARY_BUDGET" ] || budget="$MINIMUM_SUMMARY_BUDGET"
+  printf '%s' "$budget"
+}
+
+context_before_ledger="${rules}"${storage_notice:+$'\n\n'"${storage_notice}"}$'\n\n'"Ledger path: ${ledger_path}"$'\n'"Event log path: ${events_path}"$'\n'"Source map: ${hooks_dir%/*}/sources.md"$'\n'"Added sources: ${data_dir}/sources-added.md"$'\n'"Work log: ${data_dir}/work.md"${viewer_url:+$'\n'"Live viewer: ${viewer_url}"}$'\n\n'"Ledger summary:"$'\n'
+
 if [ -r "$ledger_path" ]; then
-  ledger="$(<"$ledger_path")"
+  ledger="$(ledger_summary "$(summary_budget_for "$context_before_ledger")")"
+elif [ -e "$ledger_path" ]; then
+  ledger="(the ledger file exists but cannot be read: tell the learner, and do not create a new ledger or overwrite it)"
 else
   ledger="(no ledger yet: ask the learner for their primary language, then create it with stage 1 before the first gate)"
 fi
 
-context="${rules}"${storage_notice:+$'\n\n'"${storage_notice}"}$'\n\n'"Ledger path: ${ledger_path}"$'\n'"Event log path: ${events_path}"$'\n'"Source map: ${hooks_dir%/*}/sources.md"$'\n'"Added sources: ${data_dir}/sources-added.md"$'\n'"Work log: ${data_dir}/work.md"${viewer_url:+$'\n'"Live viewer: ${viewer_url}"}$'\n\n'"Ledger contents:"$'\n'"${ledger}"
+context="${context_before_ledger}${ledger}"
 
 system_message=""
 is_compaction || system_message=$'\n'"$status_line"

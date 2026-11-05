@@ -3,7 +3,7 @@
 A Claude Code plugin that changes how Claude works with you, so every piece of work ends with you understanding it, able to explain it back, and able to rebuild it without Claude. It works in any language and starts small: the process ramps up slowly, one habit at a time.
 
 ### What it does
-- A SessionStart hook injects the core rules and your concept ledger into every session.
+- A SessionStart hook injects the core rules and a short summary of your concept ledger (each concept with its status) into every session. Claude opens the full entry in `ledger.md` when a concept comes up.
 - The `understand-first` skill holds the full protocol: six stages, gates, per-concept levels, a per-language code dial, light gates for chores, inline recall questions and a retro.
 - Understanding concepts matters more than writing them in any language. Concepts you already know become shared vocabulary, so design conversations rise to a higher level over time.
 
