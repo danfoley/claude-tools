@@ -35,6 +35,8 @@ from ledger_parse import (
     source_fields,
 )  # noqa: F401
 from storage import BackendUnavailableError
+from storage.backups import Backups
+from storage.local_folder import LocalFolder
 from storage.management import configure_storage, disable_storage, storage_overview, sync_now
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[1]
@@ -112,16 +114,16 @@ def viewer_url(port):
 
 
 def read_text(path):
-    try:
-        return path.read_text()
-    except FileNotFoundError:
-        return ""
+    return LocalFolder(path.parent).get(path.name) or ""
 
 
 def write_atomically(path, text):
-    temporary = path.with_name(path.name + ".tmp")
-    temporary.write_text(text)
-    temporary.replace(path)
+    LocalFolder(path.parent).put(path.name, text)
+
+
+def rewrite_ledger(directory, text):
+    Backups(LocalFolder(directory), time.time).keep("ledger.md")
+    write_atomically(directory / "ledger.md", text)
 
 
 def as_int(value, fallback=0):
@@ -268,10 +270,14 @@ def log_event(directory, event, reason, note, language=""):
         "date": date, "time": time_of_day, "ticket": "viewer", "event": event, "concept": "",
         "example": "", "level": "", "result": "", "reason": reason, "note": note, "language": language,
     })
-    path = directory / "events.jsonl"
-    existing = read_text(path)
-    separator = "" if existing == "" or existing.endswith("\n") else "\n"
-    write_atomically(path, f"{existing}{separator}{line}\n")
+    append_line(directory / "events.jsonl", line)
+
+
+def append_line(path, line):
+    with path.open("ab+") as file:
+        file.seek(0, os.SEEK_END)
+        needs_separator = file.tell() > 0 and (file.seek(-1, os.SEEK_END), file.read(1))[1] != b"\n"
+        file.write((b"\n" if needs_separator else b"") + line.encode() + b"\n")
 
 
 def load_ledger_text(directory):
@@ -285,7 +291,7 @@ def change_stage(directory, target):
     text = load_ledger_text(directory)
     current = as_int(parse_header(text.split("\n")).get("stage"))
     updated = set_header_line(set_header_line(text, "stage", str(target)), "stage-since", now_stamp()[0])
-    write_atomically(directory / "ledger.md", updated)
+    rewrite_ledger(directory, updated)
     return current
 
 
@@ -310,14 +316,14 @@ def reset_stage(directory, request):
 def dial_down(directory, request):
     language = valid_language(request.get("language"))
     updated = with_lowered_rung(load_ledger_text(directory), language)
-    write_atomically(directory / "ledger.md", updated)
+    rewrite_ledger(directory, updated)
     log_event(directory, "dial-down", "learner request via the viewer", f"{language} lowered one rung", language)
     return f"{language} lowered one rung."
 
 
 def add_language(directory, request):
     language = valid_language(request.get("language"))
-    write_atomically(directory / "ledger.md", with_language(load_ledger_text(directory), language))
+    rewrite_ledger(directory, with_language(load_ledger_text(directory), language))
     log_event(directory, "setting-changed", "learner request via the viewer", f"added {language} at rung 1", language)
     return f"{language} added at rung 1."
 
@@ -325,21 +331,21 @@ def add_language(directory, request):
 def set_language(directory, request):
     language = valid_language(request.get("language"))
     text = set_header_line(load_ledger_text(directory), "primary-language", language)
-    write_atomically(directory / "ledger.md", with_language(text, language))
+    rewrite_ledger(directory, with_language(text, language))
     log_event(directory, "setting-changed", "learner request via the viewer", f"primary language {language}", language)
     return f"Primary language is now {language}."
 
 
 def stats_mode_terminal(directory, request):
     text = set_header_line(load_ledger_text(directory), "stats-mode", "terminal")
-    write_atomically(directory / "ledger.md", text)
+    rewrite_ledger(directory, text)
     log_event(directory, "setting-changed", "learner request via the viewer", "stats-mode terminal")
     return "Hosted dashboard publishing is off."
 
 
 def stats_mode_dashboard(directory, request):
     text = set_header_line(load_ledger_text(directory), "stats-mode", "dashboard")
-    write_atomically(directory / "ledger.md", text)
+    rewrite_ledger(directory, text)
     log_event(directory, "setting-changed", "learner request, consent given", "stats-mode dashboard")
     return "Hosted dashboard publishing is on."
 

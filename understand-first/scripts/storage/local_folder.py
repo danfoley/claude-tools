@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import os
+import tempfile
 from pathlib import Path
 
 from .backend import StorageBackend
 
 ENCODING = "utf-8"
+KEEP_UNREADABLE_BYTES = "surrogateescape"
 
 
 class LocalFolder:
@@ -13,16 +16,22 @@ class LocalFolder:
 
     def get(self, name: str) -> str | None:
         try:
-            return self.path_of(name).read_text(encoding=ENCODING)
+            with self.path_of(name).open(encoding=ENCODING, errors=KEEP_UNREADABLE_BYTES, newline="") as file:
+                return file.read()
         except FileNotFoundError:
             return None
 
     def put(self, name: str, text: str) -> None:
         path = self.path_of(name)
-        temporary = path.with_name(path.name + ".tmp")
         self.directory.mkdir(parents=True, exist_ok=True)
-        temporary.write_text(text, encoding=ENCODING)
-        temporary.replace(path)
+        descriptor, temporary = tempfile.mkstemp(dir=self.directory, prefix=f".{name}.", suffix=".tmp")
+        try:
+            with os.fdopen(descriptor, "w", encoding=ENCODING, errors=KEEP_UNREADABLE_BYTES, newline="") as file:
+                file.write(text)
+            os.replace(temporary, path)
+        except BaseException:
+            Path(temporary).unlink(missing_ok=True)
+            raise
 
     def path_of(self, name: str) -> Path:
         StorageBackend.require_plain_file_name(name)

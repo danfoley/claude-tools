@@ -11,7 +11,7 @@ STATE_FILE = "sync-state.json"
 
 
 def hash_of(text: str) -> str:
-    return hashlib.sha256(text.encode()).hexdigest()
+    return hashlib.sha256(text.encode(errors="surrogateescape")).hexdigest()
 
 
 def is_well_formed(stored: Any) -> bool:

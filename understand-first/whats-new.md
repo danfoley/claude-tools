@@ -3,6 +3,7 @@
 - Sync no longer replaces your files with an empty or much smaller copy from the backend, and no longer pushes an empty or much smaller local file. It tells you instead.
 - A lost or damaged sync history no longer duplicates your events or loses local work: the old file is saved and you are told.
 - The session start pull gives up after 15 seconds instead of hanging.
+- Saving a file no longer fails or loses data when two things write at the same moment, and logging an event now appends to the log instead of rewriting it. Windows line endings and bytes that are not valid text survive a save.
 - Turning storage off now forgets what was synced, so a new backend receives everything.
 
 ## 0.13.0
