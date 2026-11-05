@@ -343,7 +343,8 @@ class SessionStartHookTest(TemporaryFolders):
         (self.data / "ledger.md").write_text("stage: 3\nstage-since: 2026-10-26\n")
         self.assertEqual(
             self.system_message(),
-            "\nRunning understand first at level 3. The viewer is off: turn it on with /understand-first:menu viewer on",
+            "\nRunning understand first at level 3. "
+            "The viewer is off: turn it on with /understand-first:menu viewer on",
         )
 
     def test_startup_gives_the_viewer_address_when_the_viewer_is_on(self):
@@ -371,7 +372,8 @@ class SessionStartHookTest(TemporaryFolders):
             f"- recall question: {words}\n- examples:\n  - e | what: x\n"
             for n in range(count)
         )
-        return "stage: 2\nprimary-language: PHP\n\n## Code dial\n- PHP: rung 1, clean streak 0\n\n# Concept ledger\n\n" + entries
+        header = "stage: 2\nprimary-language: PHP\n\n## Code dial\n- PHP: rung 1, clean streak 0\n\n"
+        return header + "# Concept ledger\n\n" + entries
 
     def test_the_session_context_stays_under_the_hook_output_cap(self):
         (self.data / "ledger.md").write_text(self.ledger_with_concepts(300, words="long " * 60))
@@ -406,7 +408,8 @@ class SessionStartHookTest(TemporaryFolders):
 
     def test_a_failing_summary_never_pastes_the_whole_ledger(self):
         (self.data / "ledger.md").write_text(self.ledger_with_concepts(300, words="long " * 60))
-        context = self.run_hook(environment={"UNDERSTAND_FIRST_SUMMARY_COMMAND": "false"})["hookSpecificOutput"]["additionalContext"]
+        output = self.run_hook(environment={"UNDERSTAND_FIRST_SUMMARY_COMMAND": "false"})
+        context = output["hookSpecificOutput"]["additionalContext"]
         self.assertLess(len(context), 10000)
         self.assertIn("summary is unavailable", context)
 

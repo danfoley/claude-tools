@@ -13,7 +13,7 @@ EVENTS_FILE = "events.jsonl"
 SMALLEST_SAFE_FRACTION = 2
 
 
-class SyncProblem(Exception):
+class SyncProblemError(Exception):
     pass
 
 
@@ -55,7 +55,7 @@ class Sync:
 
     def report_problems(self) -> None:
         if self.problems:
-            raise SyncProblem(" ".join(self.problems))
+            raise SyncProblemError(" ".join(self.problems))
 
     def note_problem(self, problem: str) -> None:
         if problem not in self.problems:
@@ -76,7 +76,7 @@ class Sync:
         if not text.strip():
             self.note_problem(f"The local {name} is empty, so it was not sent to the backend.")
         elif remote is None and self.state.hash_of_last_sync(name) is not None:
-            self.note_problem(f"The backend says {name} is missing although it was synced before, so it was not recreated.")
+            self.note_problem(missing_on_backend_problem(name))
         elif remote is not None and self.has_no_sync_history_and_differs(name, remote):
             pass
         elif remote and len(text) * SMALLEST_SAFE_FRACTION < len(remote):
@@ -89,7 +89,7 @@ class Sync:
         local_lines = self.local_event_lines()
         remote_text = self.backend.get(EVENTS_FILE)
         if remote_text is None and self.state.events_cursor > 0:
-            self.note_problem(f"The backend says {EVENTS_FILE} is missing although it was synced before, so it was not recreated.")
+            self.note_problem(missing_on_backend_problem(EVENTS_FILE))
             return
         remote_text = ending_with_newline(remote_text or "")
         new_events = lines_missing_from(local_lines, remote_text.splitlines(keepends=True))
@@ -113,12 +113,17 @@ class Sync:
         if self.has_unsynced_local_changes(name):
             pass
         elif self.has_no_sync_history_and_differs(name, remote):
-            self.notices.append(f"{name} on this computer had no sync history and differed from the backend, so the backend copy was used. The old file is saved in the backups folder.")
+            self.notices.append(
+                f"{name} on this computer had no sync history and differed from the backend, "
+                "so the backend copy was used. The old file is saved in the backups folder."
+            )
             return False
         elif not remote.strip():
             self.note_problem(f"The backend copy of {name} is empty, so the local file was kept.")
         elif len(remote) * SMALLEST_SAFE_FRACTION < len(local):
-            self.note_problem(f"The backend copy of {name} is less than half the size of the local file, so the local file was kept.")
+            self.note_problem(
+                f"The backend copy of {name} is less than half the size of the local file, so the local file was kept."
+            )
         else:
             return False
         return True
@@ -146,7 +151,12 @@ class Sync:
         return text is not None and self.state.hash_of_last_sync(name) is None and text != remote
 
     def local_event_lines(self) -> list[str]:
-        return ending_with_newline(self.data.get(EVENTS_FILE) or "").splitlines(keepends=True) if self.data.get(EVENTS_FILE) else []
+        text = self.data.get(EVENTS_FILE)
+        return ending_with_newline(text).splitlines(keepends=True) if text else []
+
+
+def missing_on_backend_problem(name: str) -> str:
+    return f"The backend says {name} is missing although it was synced before, so it was not recreated."
 
 
 def lines_missing_from(lines: list[str], existing_lines: list[str]) -> list[str]:

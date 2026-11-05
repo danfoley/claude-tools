@@ -9,7 +9,7 @@ from pathlib import Path
 from storage import (
     BackendUnavailableError,
     Sync,
-    SyncProblem,
+    SyncProblemError,
     SyncSchedule,
     SyncState,
     data_directory,
@@ -19,9 +19,9 @@ from storage import (
 )
 from storage.backups import Backups
 from storage.local_folder import LocalFolder
+from storage.management import configure_storage, disable_storage
 from storage.sync import EVENTS_FILE, SYNCED_FILES
 from storage.timeout import run_with_timeout
-from storage.management import configure_storage, disable_storage
 
 PULL_TIMEOUT_SECONDS = 15
 EXIT_OK = 0
@@ -43,7 +43,7 @@ def main(arguments: list[str], data_dir: Path) -> int:
         return EXIT_NEEDS_ATTENTION
     try:
         command()
-    except (BackendUnavailableError, UsageError, SyncProblem) as problem:
+    except (BackendUnavailableError, UsageError, SyncProblemError) as problem:
         print(problem)
         return EXIT_NEEDS_ATTENTION
     except Exception as problem:

@@ -28,7 +28,7 @@ class LocalFolder:
         try:
             with os.fdopen(descriptor, "w", encoding=ENCODING, errors=KEEP_UNREADABLE_BYTES, newline="") as file:
                 file.write(text)
-            os.replace(temporary, path)
+            Path(temporary).replace(path)
         except BaseException:
             Path(temporary).unlink(missing_ok=True)
             raise

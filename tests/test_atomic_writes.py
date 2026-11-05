@@ -79,13 +79,15 @@ class ViewerWritesTest(TemporaryFolderTest):
         self.assertEqual(notes, {f"note {number}" for number in range(10)})
 
     def test_changing_the_ledger_from_the_viewer_backs_it_up_first(self):
-        (self.directory / "ledger.md").write_text("stage: 3\nstage-since: 2026-01-01\n\n# Concept ledger\n")
+        original = "stage: 3\nstage-since: 2026-01-01\n\n# Concept ledger\n"
+        (self.directory / "ledger.md").write_text(original)
         viewer.stats_mode_terminal(self.directory, {})
         backups = list((self.directory / "backups").glob("ledger.md.*"))
-        self.assertEqual([path.read_text() for path in backups], ["stage: 3\nstage-since: 2026-01-01\n\n# Concept ledger\n"])
+        self.assertEqual([path.read_text() for path in backups], [original])
 
     def test_a_ledger_with_bytes_that_are_not_utf8_is_not_damaged_by_a_viewer_change(self):
-        (self.directory / "ledger.md").write_bytes(b"stage: 3\n\n# Concept ledger\n### a\n- in the learner's words: \xff\n")
+        not_utf8 = b"stage: 3\n\n# Concept ledger\n### a\n- in the learner's words: \xff\n"
+        (self.directory / "ledger.md").write_bytes(not_utf8)
         viewer.stats_mode_terminal(self.directory, {})
         self.assertIn(b"\xff", (self.directory / "ledger.md").read_bytes())
 

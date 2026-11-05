@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 from storage import Sync, SyncState
-from storage.sync import SyncProblem
+from storage.sync import SyncProblemError
 from test_sync import SyncTestCase
 
 LEDGER = "stage: 2\n\n### a\n- status: learning\n" * 20
@@ -23,14 +23,14 @@ class PullGuardsTest(SyncTestCase):
     def test_an_empty_backend_ledger_does_not_replace_the_local_one(self):
         synced_laptop(self)
         self.backend.files["ledger.md"] = ""
-        with self.assertRaises(SyncProblem):
+        with self.assertRaises(SyncProblemError):
             self.laptop.sync.pull()
         self.assertEqual(self.laptop.read("ledger.md"), LEDGER)
 
     def test_a_much_smaller_backend_ledger_does_not_replace_the_local_one(self):
         synced_laptop(self)
         self.backend.files["ledger.md"] = "stage: 2\n"
-        with self.assertRaises(SyncProblem):
+        with self.assertRaises(SyncProblemError):
             self.laptop.sync.pull()
         self.assertEqual(self.laptop.read("ledger.md"), LEDGER)
 
@@ -69,14 +69,14 @@ class PushGuardsTest(SyncTestCase):
     def test_an_empty_local_ledger_is_not_pushed(self):
         synced_laptop(self)
         self.laptop.write("ledger.md", "")
-        with self.assertRaises(SyncProblem):
+        with self.assertRaises(SyncProblemError):
             self.laptop.sync.push()
         self.assertEqual(self.backend.files["ledger.md"], LEDGER)
 
     def test_a_local_ledger_less_than_half_the_backend_size_is_not_pushed(self):
         synced_laptop(self)
         self.laptop.write("ledger.md", "stage: 2\n")
-        with self.assertRaises(SyncProblem):
+        with self.assertRaises(SyncProblemError):
             self.laptop.sync.push()
         self.assertEqual(self.backend.files["ledger.md"], LEDGER)
 
@@ -84,7 +84,7 @@ class PushGuardsTest(SyncTestCase):
         synced_laptop(self)
         del self.backend.files["ledger.md"]
         self.laptop.write("ledger.md", LEDGER + "### more\n")
-        with self.assertRaises(SyncProblem):
+        with self.assertRaises(SyncProblemError):
             self.laptop.sync.push()
         self.assertNotIn("ledger.md", self.backend.files)
 
@@ -137,7 +137,7 @@ class SyncStateShapeTest(SyncTestCase):
     def test_the_problem_text_names_the_file_and_the_reason(self):
         synced_laptop(self)
         self.backend.files["ledger.md"] = ""
-        with self.assertRaises(SyncProblem) as problem:
+        with self.assertRaises(SyncProblemError) as problem:
             self.laptop.sync.pull()
         self.assertIn("ledger.md", str(problem.exception))
         self.assertIn("empty", str(problem.exception))

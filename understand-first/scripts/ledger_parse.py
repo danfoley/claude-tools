@@ -68,21 +68,38 @@ def parse_code_line(line: str) -> dict:
     return {"text": line[len(prefix):], "highlight": highlight}
 
 
-def parse_concepts(lines):
-    fields = {
-        "- status: ": "status",
-        "- last verified: ": "verified",
-        "- in the learner's words: ": "words",
-        "- recall question: ": "recall",
-        "- study: ": "study",
+CONCEPT_FIELD_PREFIXES = {
+    "- status: ": "status",
+    "- last verified: ": "verified",
+    "- in the learner's words: ": "words",
+    "- recall question: ": "recall",
+    "- study: ": "study",
+}
+
+
+def new_concept(name):
+    return {
+        "name": name, "status": "", "verified": "", "words": "", "recall": "", "study": "",
+        "examples": 0, "exampleNotes": [], "exampleCode": [], "exampleLanguages": [], "applied": {}, "sources": [],
     }
+
+
+def continues_code_snapshot(concept, line):
+    snapshots = concept["exampleCode"]
+    return bool(snapshots and snapshots[-1]) and line.startswith(CODE_LINE_PREFIXES)
+
+
+def read_field(concept, line):
+    for prefix, field in CONCEPT_FIELD_PREFIXES.items():
+        if line.startswith(prefix):
+            concept[field] = line[len(prefix):].strip()
+
+
+def parse_concepts(lines):
     concepts = []
     for line in lines:
         if line.startswith("### "):
-            concepts.append({
-                "name": line[4:].strip(), "status": "", "verified": "", "words": "", "recall": "", "study": "",
-                "examples": 0, "exampleNotes": [], "exampleCode": [], "exampleLanguages": [], "applied": {}, "sources": [],
-            })
+            concepts.append(new_concept(line[4:].strip()))
         elif concepts and line.startswith("  - "):
             concepts[-1]["examples"] += 1
             concepts[-1]["exampleNotes"].append(line[len("  - "):].strip())
@@ -92,7 +109,7 @@ def parse_concepts(lines):
             concepts[-1]["exampleLanguages"][-1] = line[len(LANGUAGE_HEADER_PREFIX):].strip()
         elif concepts and concepts[-1]["exampleCode"] and line.startswith(CODE_HEADER_PREFIX):
             concepts[-1]["exampleCode"][-1] = parse_code_header(line[len(CODE_HEADER_PREFIX):])
-        elif concepts and concepts[-1]["exampleCode"] and concepts[-1]["exampleCode"][-1] and line.startswith(CODE_LINE_PREFIXES):
+        elif concepts and continues_code_snapshot(concepts[-1], line):
             concepts[-1]["exampleCode"][-1]["lines"].append(parse_code_line(line))
         elif concepts and line.startswith(APPLIED_PREFIX):
             language, _, note = line[len(APPLIED_PREFIX):].partition(": ")
@@ -101,9 +118,7 @@ def parse_concepts(lines):
         elif concepts and line.startswith(SOURCE_PREFIX):
             concepts[-1]["sources"].append(parse_source(line[len(SOURCE_PREFIX):]))
         elif concepts:
-            for prefix, field in fields.items():
-                if line.startswith(prefix):
-                    concepts[-1][field] = line[len(prefix):].strip()
+            read_field(concepts[-1], line)
     for concept in concepts:
         concept["status"] = canonical_status(concept["status"])
     return concepts

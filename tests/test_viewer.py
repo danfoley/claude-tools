@@ -12,6 +12,7 @@ import unittest
 import unittest.mock
 from pathlib import Path
 
+import ledger_parse
 import viewer
 
 PLUGIN = Path(__file__).resolve().parents[1] / "understand-first"
@@ -121,27 +122,27 @@ class ViewerTest(unittest.TestCase):
         }])
 
     def test_a_source_without_a_web_link_has_no_url(self):
-        source = viewer.parse_source("Local notes | javascript:alert(1) | guide | checked 2026-11-05")
+        source = ledger_parse.parse_source("Local notes | javascript:alert(1) | guide | checked 2026-11-05")
         self.assertEqual(source["url"], "")
 
     def test_an_installed_plugin_source_is_kept_as_text_without_a_url(self):
-        source = viewer.parse_source("playwright-skill | plugin:playwright-skill | plugin | checked 2026-11-05")
+        source = ledger_parse.parse_source("playwright-skill | plugin:playwright-skill | plugin | checked 2026-11-05")
         self.assertEqual(source, {"title": "playwright-skill", "url": "", "kind": "plugin", "checked": "2026-11-05"})
 
     def test_a_plain_http_link_is_kept_as_the_url(self):
-        source = viewer.parse_source("Old docs | http://example.com/docs | official | checked 2026-11-05")
+        source = ledger_parse.parse_source("Old docs | http://example.com/docs | official | checked 2026-11-05")
         self.assertEqual(source["url"], "http://example.com/docs")
 
     def test_extra_separators_in_a_source_are_ignored(self):
-        source = viewer.parse_source("A | https://example.com | guide | checked 2026-11-05 | stray | more")
+        source = ledger_parse.parse_source("A | https://example.com | guide | checked 2026-11-05 | stray | more")
         self.assertEqual(source["checked"], "2026-11-05")
 
     def test_a_source_without_a_checked_date_has_an_empty_one(self):
-        source = viewer.parse_source("Spec | https://example.com | standard")
+        source = ledger_parse.parse_source("Spec | https://example.com | standard")
         self.assertEqual((source["kind"], source["checked"]), ("standard", ""))
 
     def test_a_source_with_only_a_title_still_parses(self):
-        self.assertEqual(viewer.parse_source("PSR-12"), {"title": "PSR-12", "url": "", "kind": "", "checked": ""})
+        self.assertEqual(ledger_parse.parse_source("PSR-12"), {"title": "PSR-12", "url": "", "kind": "", "checked": ""})
 
     def test_state_carries_the_study_estimate_of_a_concept(self):
         _, text = self.request("GET", "/api/state")
@@ -166,7 +167,7 @@ class ViewerTest(unittest.TestCase):
             "    > $this->sender->send($mail);",
             "    >> $this->messages->deleteClaimed($ids);",
         ]
-        concept = viewer.parse_concepts(ledger_lines)[0]
+        concept = ledger_parse.parse_concepts(ledger_lines)[0]
         self.assertEqual(concept["exampleNotes"], [note])
         self.assertEqual(concept["exampleCode"], [{
             "path": "services/Notifier.php",
@@ -178,7 +179,7 @@ class ViewerTest(unittest.TestCase):
         }])
 
     def test_an_example_without_a_snapshot_has_no_code(self):
-        concept = viewer.parse_concepts(["### idempotency", "- examples:", "  - digest | where: somewhere"])[0]
+        concept = ledger_parse.parse_concepts(["### idempotency", "- examples:", "  - digest | where: somewhere"])[0]
         self.assertEqual(concept["exampleCode"], [None])
 
     def test_state_reports_how_a_concept_was_applied_in_each_language(self):

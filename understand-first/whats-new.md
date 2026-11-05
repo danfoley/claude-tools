@@ -1,3 +1,7 @@
+## 0.14.3
+- An example whose language can't be told from its file ending, such as `composer.json` or a GitHub workflow `.yml`, is now looked up on the web: Claude finds what reads the file and records that language or tool (for example PHP or GitHub Actions), cross-checks it against the example, and asks you when it is not sure. The warning at session start now says so.
+- Format endings such as `.json`, `.yaml` and `.toml` are never tagged automatically, and a test fails if one is added.
+
 ## 0.14.2
 - The Languages screen now lists, under each concept, the examples written in the selected language, each with where it was used and its code block. Each example records its language on a `lang:` line, which Claude writes for every new example.
 - At session start, examples that have a code file but no `lang:` line are tagged automatically from the file ending (.php, .py, .ts, .js, .sh, .go and so on), after a backup. Examples it cannot tag are flagged to Claude so it can add the language.

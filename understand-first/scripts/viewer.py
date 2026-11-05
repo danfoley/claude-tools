@@ -13,27 +13,7 @@ from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from ledger_parse import (
-    APPLIED_PREFIX,
-    CODE_HEADER,
-    CODE_HEADER_PREFIX,
-    CODE_HIGHLIGHT_PREFIX,
-    CODE_LINE_PREFIX,
-    CODE_LINE_PREFIXES,
-    DIAL_LINE,
-    SOURCE_FIELD_COUNT,
-    SOURCE_PREFIX,
-    WEB_LINK_PREFIXES,
-    header_end,
-    parse_code_header,
-    parse_code_line,
-    parse_concepts,
-    parse_dial,
-    parse_header,
-    parse_ledger,
-    parse_source,
-    source_fields,
-)  # noqa: F401
+from ledger_parse import DIAL_LINE, header_end, parse_header, parse_ledger
 from storage import BackendUnavailableError
 from storage.backups import Backups
 from storage.local_folder import LocalFolder
@@ -549,7 +529,7 @@ def read_pidfile():
         record = json.loads(pidfile_path().read_text())
     except (OSError, ValueError):
         return None
-    has_pid_and_port = isinstance(record, dict) and isinstance(record.get("pid"), int) and isinstance(record.get("port"), int)
+    has_pid_and_port = isinstance(record, dict) and all(isinstance(record.get(key), int) for key in ("pid", "port"))
     return record if has_pid_and_port else None
 
 

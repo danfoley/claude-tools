@@ -26,7 +26,11 @@ class PluginVersionTest(unittest.TestCase):
         environment = {**os.environ, "UNDERSTAND_FIRST_DATA": str(self.data), "NO_COLOR": "1"}
         payload = json.dumps({"hook_event_name": "SessionStart", "source": "startup"})
         result = subprocess.run(
-            [str(self.plugin / "hooks" / "session-start")], env=environment, input=payload, capture_output=True, text=True
+            [str(self.plugin / "hooks" / "session-start")],
+            env=environment,
+            input=payload,
+            capture_output=True,
+            text=True,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         return json.loads(result.stdout).get("systemMessage", "")

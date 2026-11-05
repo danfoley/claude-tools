@@ -74,7 +74,11 @@ class InstructionTextTest(unittest.TestCase):
                         self.assertRegex(line, r"(?i)old|older|read|ledgers", f"{name}: {line}")
 
     def test_delegation_respects_stages(self):
-        self.assertNotIn("gates 1 to 3 (problem, concepts, design) and the teach-back explanation before any commit, push or PR still apply", SKILL)
+        stale_wording = (
+            "gates 1 to 3 (problem, concepts, design) and the teach-back explanation "
+            "before any commit, push or PR still apply"
+        )
+        self.assertNotIn(stale_wording, SKILL)
 
 
 if __name__ == "__main__":

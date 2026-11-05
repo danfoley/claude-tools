@@ -174,20 +174,20 @@ class StalledClientTest(unittest.TestCase):
         self.assertLessEqual(viewer.ViewerHandler.timeout, 30)
 
     def test_a_half_sent_request_is_dropped_by_the_server(self):
-        with unittest.mock.patch.object(viewer.ViewerHandler, "timeout", 0.3):
-            with tempfile.TemporaryDirectory() as folder:
-                server = viewer.ViewerServer(Path(folder), 0)
-                threading.Thread(target=server.serve_forever, daemon=True).start()
-                try:
-                    client = socket.create_connection(("127.0.0.1", server.server_port), timeout=5)
-                    client.sendall(b"GET /api/health HTTP/1.1\r\nHost: 127")
-                    started = time.monotonic()
-                    client.recv(1)
-                    self.assertLess(time.monotonic() - started, 3)
-                    client.close()
-                finally:
-                    server.shutdown()
-                    server.server_close()
+        short_timeout = unittest.mock.patch.object(viewer.ViewerHandler, "timeout", 0.3)
+        with short_timeout, tempfile.TemporaryDirectory() as folder:
+            server = viewer.ViewerServer(Path(folder), 0)
+            threading.Thread(target=server.serve_forever, daemon=True).start()
+            try:
+                client = socket.create_connection(("127.0.0.1", server.server_port), timeout=5)
+                client.sendall(b"GET /api/health HTTP/1.1\r\nHost: 127")
+                started = time.monotonic()
+                client.recv(1)
+                self.assertLess(time.monotonic() - started, 3)
+                client.close()
+            finally:
+                server.shutdown()
+                server.server_close()
 
 
 if __name__ == "__main__":

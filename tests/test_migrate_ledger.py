@@ -4,7 +4,10 @@ from pathlib import Path
 
 import migrate_ledger
 
-HEAD = "stage: 1\n\n## Code dial\n- PHP: rung 1, clean streak 0\n\n# Concept ledger\n\n### idempotency\n- status: learning\n- examples:\n"
+HEAD = (
+    "stage: 1\n\n## Code dial\n- PHP: rung 1, clean streak 0\n\n"
+    "# Concept ledger\n\n### idempotency\n- status: learning\n- examples:\n"
+)
 
 
 def example(title, path, lang=None):
@@ -33,6 +36,15 @@ class MigrateLedgerTextTest(unittest.TestCase):
     def test_an_ending_it_does_not_know_is_left_untagged(self):
         text = ledger_of(example("a", "services/composer.json"))
         self.assertEqual(migrate_ledger.migrate_text(text), text)
+
+    def test_a_github_workflow_file_is_left_untagged(self):
+        text = ledger_of(example("a", ".github/workflows/ci.yml"))
+        self.assertEqual(migrate_ledger.migrate_text(text), text)
+
+    def test_no_format_ending_is_mapped_to_a_language(self):
+        format_endings = ["json", "yaml", "yml", "toml", "xml", "md", "env", "ini", "txt", "lock"]
+        mapped = [ending for ending in format_endings if ending in migrate_ledger.LANGUAGE_BY_EXTENSION]
+        self.assertEqual(mapped, [])
 
 
 class MigrateLedgerFileTest(unittest.TestCase):

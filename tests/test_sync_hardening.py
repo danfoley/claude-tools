@@ -8,7 +8,7 @@ from pathlib import Path
 from storage import PushLock, StorageConfiguration, SyncState, discover_backends
 from storage.configuration import save_configuration
 from storage.management import storage_overview
-from test_sync import Computer, FakeClock, MemoryBackend, SyncTestCase
+from test_sync import BackendDownError, FakeClock, SyncTestCase
 
 
 class PushLockTest(unittest.TestCase):
@@ -80,7 +80,7 @@ class ScheduleThrottleTest(SyncTestCase):
         self.laptop.schedule.tick()
         self.clock.now += 2 * 3600
         self.backend.down = True
-        with self.assertRaises(Exception):
+        with self.assertRaises(BackendDownError):
             self.laptop.schedule.tick()
         self.backend.down = False
         self.backend.files["ledger.md"] = "stage: 9\n"

@@ -231,6 +231,12 @@ viewer: off
 
 Language on an example: right under the example line, add `    lang: <Language>` (4 spaces), the language the example's code is written in, spelled as in the code dial. Write it on every new example, whether or not it has a code snapshot. The viewer's Languages screen lists an example under that language only, and an example with no `lang:` line is listed under none. Never guess the language from a file ending: you know the language you are writing about.
 
+When an example has no `lang:` line, or the session warning lists untagged examples, find what it belongs to before writing one. The value is a language or a tool (for example `GitHub Actions` for `.github/workflows/ci.yml`), spelled as in the code dial.
+- A format ending (`json`, `yaml`, `yml`, `toml`, `xml`, `md`, `env`) never names the language. Search the web for what reads the file (`composer.json` is read by Composer, which is PHP's package manager) and name that.
+- Cross-check the answer against what the example is about and the concept's `applied in` lines. If they disagree, or no clear answer is found, write nothing and ask the learner.
+- A tool not yet in the code dial is added at rung 1 and its source is recorded, as for any new language or tool.
+- Never add a format ending to `LANGUAGE_BY_EXTENSION` in `scripts/migrate_ledger.py`: only endings that name exactly one language belong there, and `tests/test_migrate_ledger.py` fails if one is added.
+
 Code snapshot on an example: right under the example line (and under its `lang:` line), add `    code: <path>:<first line number>` (4 spaces), then one line per line of the real code as it was when the example was recorded: `    > ` before an ordinary line, `    >> ` before a line the example is about (the key lines). Copy the whole block that makes the point (the full statement or method body, not only the key line), keep its indentation, and number from the file's real first line. Keep it to about 30 lines. The `where:` text stays as the one-line explanation and the viewer shows it under the code block, so never describe the code inside the block. An example without a snapshot still works and shows only the `where:` text.
 
 Statuses (they describe where the learner is on a journey, never a grade; not fully understanding something yet is normal and expected):

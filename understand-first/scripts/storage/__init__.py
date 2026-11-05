@@ -15,7 +15,7 @@ from .discovery import Discovered, discover_backends
 from .local_folder import LocalFolder
 from .push_lock import PushLock
 from .schedule import SyncSchedule
-from .sync import Sync, SyncProblem
+from .sync import Sync, SyncProblemError
 from .sync_state import SyncState
 
 __all__ = [
@@ -29,7 +29,7 @@ __all__ = [
     "StorageConfiguration",
     "StorageError",
     "Sync",
-    "SyncProblem",
+    "SyncProblemError",
     "SyncSchedule",
     "SyncState",
     "build_backend",

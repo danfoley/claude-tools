@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import ledger_parse  # noqa: E402
+import ledger_parse
 
 EXAMPLE_LABEL_SEPARATOR = " | "
 

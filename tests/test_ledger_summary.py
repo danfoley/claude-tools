@@ -15,16 +15,23 @@ viewer: on
 """
 
 
-def concept(name, status, words="in my words", recall="a recall question", examples=1, applied_in=()):
+def concept(name, status, words="in my words", recall="a recall question", examples=1):
     entry = (
         f"### {name}\n- status: {status}\n- last verified: 2026-10-24\n"
         f"- in the learner's words: {words}\n- recall question: {recall}\n"
-        + "".join(f"- applied in {language}: how it looks there\n" for language in applied_in)
-        + "- examples:\n"
+        "- examples:\n"
     )
     for number in range(examples):
-        entry += f"  - example {number} | what: {'x' * 400} | where: y | why: z\n    lang: PHP\n    code: a.php:1\n    >> $code;\n"
+        entry += (
+            f"  - example {number} | what: {'x' * 400} | where: y | why: z\n"
+            "    lang: PHP\n    code: a.php:1\n    >> $code;\n"
+        )
     return entry
+
+
+def concept_applied_in(name, languages):
+    applied_lines = "".join(f"- applied in {language}: how it looks there\n" for language in languages)
+    return concept(name, "learning").replace("- examples:\n", applied_lines + "- examples:\n")
 
 
 def ledger_of(*concepts):
@@ -39,7 +46,8 @@ class LedgerSummaryTest(unittest.TestCase):
         self.assertIn("- PHP: rung 1, clean streak 0", summary)
 
     def test_lists_every_concept_with_its_status(self):
-        summary = ledger_summary.summarise(ledger_of(concept("idempotency", "learning"), concept("checkpointing", "solid")))
+        concepts = ledger_of(concept("idempotency", "learning"), concept("checkpointing", "solid"))
+        summary = ledger_summary.summarise(concepts)
         self.assertIn("idempotency", summary)
         self.assertIn("checkpointing", summary)
         self.assertRegex(summary, r"idempotency.*learning")
@@ -51,12 +59,14 @@ class LedgerSummaryTest(unittest.TestCase):
         self.assertNotIn("a.php:1", summary)
 
     def test_keeps_words_and_recall_question_for_concepts_still_being_learned(self):
-        summary = ledger_summary.summarise(ledger_of(concept("idempotency", "learning", words="same twice", recall="what stops a resend?")))
+        learning = concept("idempotency", "learning", words="same twice", recall="what stops a resend?")
+        summary = ledger_summary.summarise(ledger_of(learning))
         self.assertIn("same twice", summary)
         self.assertIn("what stops a resend?", summary)
 
     def test_shortens_concepts_that_are_getting_it_or_solid_to_one_short_line(self):
-        summary = ledger_summary.summarise(ledger_of(concept("checkpointing", "solid", words="saves progress", recall="why?")))
+        solid = concept("checkpointing", "solid", words="saves progress", recall="why?")
+        summary = ledger_summary.summarise(ledger_of(solid))
         self.assertNotIn("saves progress", summary)
         self.assertNotIn("why?", summary)
 
@@ -66,7 +76,8 @@ class LedgerSummaryTest(unittest.TestCase):
 
     def test_a_large_ledger_stays_under_the_budget_with_every_concept_present(self):
         names = [f"concept-{number}" for number in range(120)]
-        big = ledger_of(*[concept(name, "getting it" if number % 2 else "learning", examples=4) for number, name in enumerate(names)])
+        statuses = {name: "getting it" if number % 2 else "learning" for number, name in enumerate(names)}
+        big = ledger_of(*[concept(name, status, examples=4) for name, status in statuses.items()])
         summary = ledger_summary.summarise(big)
         self.assertLess(len(summary), ledger_summary.DEFAULT_BUDGET_CHARACTERS)
         for name in names:
@@ -93,7 +104,8 @@ class LedgerSummaryTest(unittest.TestCase):
         self.assertIn("still-learning", ledger_summary.summarise(ledger_of(*concepts), 1200))
 
     def test_one_very_long_entry_does_not_strip_the_others(self):
-        summary = ledger_summary.summarise(ledger_of(concept("a", "learning", words="x" * 20000), concept("b", "learning", words="kept")))
+        long_entry = concept("a", "learning", words="x" * 20000)
+        summary = ledger_summary.summarise(ledger_of(long_entry, concept("b", "learning", words="kept")))
         self.assertIn("kept", summary)
         self.assertLess(len(summary), 2000)
 
@@ -111,13 +123,14 @@ class LedgerSummaryTest(unittest.TestCase):
         self.assertIn("WARNING", summary)
 
     def test_warns_about_a_language_used_in_a_concept_but_missing_from_the_code_dial(self):
-        summary = ledger_summary.summarise(ledger_of(concept("idempotency", "learning", applied_in=["PHP", "Go"])))
+        summary = ledger_summary.summarise(ledger_of(concept_applied_in("idempotency", ["PHP", "Go"])))
         self.assertIn("WARNING: used in the ledger but not in the code dial: Go", summary)
 
     def test_warns_how_many_examples_have_no_language_line(self):
         untagged = "  - a | what: w | where: x | why: y\n    code: a.json:1\n    > {}\n"
         tagged = "  - b | what: w | where: x | why: y\n    lang: PHP\n    code: b.php:1\n    > $b;\n"
-        summary = ledger_summary.summarise(HEADER + "### c\n- status: learning\n- examples:\n" + untagged + untagged + tagged)
+        examples = untagged + untagged + tagged
+        summary = ledger_summary.summarise(HEADER + "### c\n- status: learning\n- examples:\n" + examples)
         self.assertIn("WARNING: 2 examples have no lang: line", summary)
 
     def test_does_not_warn_when_every_example_has_a_language_line(self):
@@ -126,7 +139,7 @@ class LedgerSummaryTest(unittest.TestCase):
         self.assertNotIn("have no lang: line", summary)
 
     def test_does_not_warn_when_every_used_language_is_in_the_code_dial(self):
-        summary = ledger_summary.summarise(ledger_of(concept("idempotency", "learning", applied_in=["php", "Python"])))
+        summary = ledger_summary.summarise(ledger_of(concept_applied_in("idempotency", ["php", "Python"])))
         self.assertNotIn("not in the code dial", summary)
 
 

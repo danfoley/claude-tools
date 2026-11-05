@@ -4,11 +4,13 @@ import ledger_parse
 from statuses import canonical_status
 
 BODY = "\n## Code dial\n- PHP: rung 1, clean streak 0\n\n# Concept ledger\n\n### a\n- status: Learning \n"
+BYTE_ORDER_MARK = chr(0xFEFF)
+LINE_SEPARATOR = chr(0x2028)
 
 
 class LedgerParseTest(unittest.TestCase):
     def test_a_byte_order_mark_does_not_hide_the_stage(self):
-        header = ledger_parse.parse_ledger("﻿stage: 3\n" + BODY)["header"]
+        header = ledger_parse.parse_ledger(BYTE_ORDER_MARK + "stage: 3\n" + BODY)["header"]
         self.assertEqual(header["stage"], "3")
 
     def test_windows_line_endings_give_the_same_result(self):
@@ -20,8 +22,9 @@ class LedgerParseTest(unittest.TestCase):
         self.assertEqual(ledger_parse.parse_ledger("stage:3\n" + BODY)["header"]["stage"], "3")
 
     def test_line_separator_characters_inside_text_do_not_split_lines(self):
-        text = "stage: 3\n" + BODY + "- in the learner's words: one two\x0cthree\n"
-        self.assertEqual(ledger_parse.parse_ledger(text)["concepts"][0]["words"], "one two\x0cthree")
+        words = f"one{LINE_SEPARATOR}two\x0cthree"
+        text = "stage: 3\n" + BODY + f"- in the learner's words: {words}\n"
+        self.assertEqual(ledger_parse.parse_ledger(text)["concepts"][0]["words"], words)
 
     def test_status_is_read_case_and_space_insensitively(self):
         self.assertEqual(ledger_parse.parse_ledger("stage: 3\n" + BODY)["concepts"][0]["status"], "learning")

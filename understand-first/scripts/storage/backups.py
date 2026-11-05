@@ -31,5 +31,6 @@ class Backups:
     def existing(self, name: str) -> list[str]:
         if not self.folder.directory.exists():
             return []
-        stamped = [path.name for path in self.folder.directory.glob(f"{name}.*") if path.name[len(name) + 1 :].isdigit()]
+        candidates = [path.name for path in self.folder.directory.glob(f"{name}.*")]
+        stamped = [candidate for candidate in candidates if candidate[len(name) + 1 :].isdigit()]
         return sorted(stamped, key=lambda backup: int(backup[len(name) + 1 :]))

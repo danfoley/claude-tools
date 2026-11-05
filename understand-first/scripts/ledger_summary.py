@@ -6,6 +6,7 @@ from pathlib import Path
 from ledger_parse import parse_ledger
 
 DEFAULT_BUDGET_CHARACTERS = 3000
+BUDGET_ARGUMENT_INDEX = 2
 FIELD_LIMIT = 150
 HEADER_LINE_LIMIT = 200
 HEADER_LINES_SHOWN = 20
@@ -47,7 +48,8 @@ def names_that_fit(ledger, text, budget):
     for shown in range(len(concepts), -1, -1):
         listed = [concept["name"] for concept in concepts[:shown]]
         hidden = len(concepts) - shown
-        lines = ["Names only: " + ", ".join(listed)] + ([f"+{hidden} more concepts, see the ledger file"] if hidden else [])
+        hidden_note = [f"+{hidden} more concepts, see the ledger file"] if hidden else []
+        lines = ["Names only: " + ", ".join(listed), *hidden_note]
         summary = assemble(ledger, text, lines)
         if len(summary) <= budget or shown == 0:
             return lines
@@ -55,28 +57,36 @@ def names_that_fit(ledger, text, budget):
 
 
 def assemble(ledger, text, concept_lines):
-    lines = header_lines(ledger) + ["", count_line(ledger, text), "Concepts (name | status | last verified):"]
-    return "\n".join(lines + concept_lines + ["", NOTICE])
+    lines = [*header_lines(ledger), "", count_line(ledger, text), "Concepts (name | status | last verified):"]
+    return "\n".join([*lines, *concept_lines, "", NOTICE])
 
 
 def header_lines(ledger):
-    header = [clipped(f"{key}: {value}", HEADER_LINE_LIMIT) for key, value in list(ledger["header"].items())[:HEADER_LINES_SHOWN]]
+    shown_fields = list(ledger["header"].items())[:HEADER_LINES_SHOWN]
+    header = [clipped(f"{key}: {value}", HEADER_LINE_LIMIT) for key, value in shown_fields]
     dial = [f"- {entry['language']}: rung {entry['rung']}, clean streak {entry['streak']}" for entry in ledger["dial"]]
-    return header + (["", "Code dial:"] + dial if dial else []) + missing_dial_warning(ledger) + untagged_examples_warning(ledger)
+    dial_block = ["", "Code dial:", *dial] if dial else []
+    return [*header, *dial_block, *missing_dial_warning(ledger), *untagged_examples_warning(ledger)]
 
 
 def untagged_examples_warning(ledger):
     untagged = sum(language == "" for concept in ledger["concepts"] for language in concept["exampleLanguages"])
     if not untagged:
         return []
-    return [f"WARNING: {untagged} examples have no lang: line. Add the language to each so the Languages screen can show it."]
+    return [
+        f"WARNING: {untagged} examples have no lang: line. Look up the language or tool each one belongs to, "
+        "as the skill describes, and add it so the Languages screen can show it."
+    ]
 
 
 def missing_dial_warning(ledger):
     missing = languages_missing_from_dial(ledger)
     if not missing:
         return []
-    return [f"WARNING: used in the ledger but not in the code dial: {', '.join(missing)}. Add each at rung 1 and tell the learner."]
+    return [
+        f"WARNING: used in the ledger but not in the code dial: {', '.join(missing)}. "
+        "Add each at rung 1 and tell the learner."
+    ]
 
 
 def languages_missing_from_dial(ledger):
@@ -88,7 +98,10 @@ def languages_missing_from_dial(ledger):
 def count_line(ledger, text):
     count = len(ledger["concepts"])
     if count == 0 and len(text) > UNPARSED_FILE_SIZE:
-        return f"WARNING: the ledger file has {len(text)} characters but no concepts could be read from it. Do not create a new ledger; open the file and look."
+        return (
+            f"WARNING: the ledger file has {len(text)} characters but no concepts could be read from it. "
+            "Do not create a new ledger; open the file and look."
+        )
     return f"Ledger file: {count} concepts, {len(text)} characters."
 
 
@@ -106,12 +119,14 @@ def is_being_learned(concept):
 
 
 def short_line(concept):
-    return f"- {clipped(concept['name'], FIELD_LIMIT)} | {concept['status'] or 'new'} | {concept['verified'] or 'never'}"
+    verified = concept["verified"] or "never"
+    return f"- {clipped(concept['name'], FIELD_LIMIT)} | {concept['status'] or 'new'} | {verified}"
 
 
 def detailed_line(concept):
     details = [("words", concept["words"]), ("recall", concept["recall"])]
-    return " | ".join([short_line(concept)] + [f"{label}: {clipped(value, FIELD_LIMIT)}" for label, value in details if value])
+    detail_fields = [f"{label}: {clipped(value, FIELD_LIMIT)}" for label, value in details if value]
+    return " | ".join([short_line(concept), *detail_fields])
 
 
 def clipped(text, limit):
@@ -119,7 +134,8 @@ def clipped(text, limit):
 
 
 def main():
-    budget = int(sys.argv[2]) if len(sys.argv) > 2 else DEFAULT_BUDGET_CHARACTERS
+    has_budget = len(sys.argv) > BUDGET_ARGUMENT_INDEX
+    budget = int(sys.argv[BUDGET_ARGUMENT_INDEX]) if has_budget else DEFAULT_BUDGET_CHARACTERS
     print(summarise_bytes(Path(sys.argv[1]).read_bytes(), budget))
 
 

@@ -60,7 +60,9 @@ def require_reachable(backend: StorageBackend) -> None:
 
 def configured_choice(data_dir: Path) -> dict[str, Any] | None:
     configuration = load_configuration(sync_directory(data_dir))
-    return None if configuration is None else {"backend": configuration.backend, "settings": configuration.masked_settings()}
+    if configuration is None:
+        return None
+    return {"backend": configuration.backend, "settings": configuration.masked_settings()}
 
 
 def describe(backend: type[StorageBackend]) -> dict[str, Any]:
