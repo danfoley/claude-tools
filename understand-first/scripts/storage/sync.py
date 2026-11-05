@@ -37,7 +37,8 @@ class Sync:
     def pull(self) -> None:
         self.problems = []
         self.notices = []
-        self.push_under_lock()
+        if not self.push_under_lock():
+            self.notices.append("Another sync holds the push lock, so local changes were not sent this time.")
         self.pull_files_without_local_changes()
         self.pull_events()
         self.report_problems()

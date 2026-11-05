@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from functools import cache
 from pathlib import Path
 from typing import Any
 
@@ -10,13 +9,13 @@ from .configuration import (
     BackendUnavailableError,
     StorageConfiguration,
     build_backend,
+    installed_backends,
     load_configuration,
     remove_configuration,
     save_configuration,
     sync_directory,
     sync_from_configuration,
 )
-from .discovery import Discovered, discover_backends
 from .sync_state import STATE_FILE, SyncState
 
 MAX_SETTING_LENGTH = 500
@@ -52,11 +51,6 @@ def sync_now(data_dir: Path) -> None:
     sync.pull()
 
 
-@cache
-def installed_backends(backends_directory: Path) -> Discovered:
-    return discover_backends(backends_directory)
-
-
 def require_reachable(backend: StorageBackend) -> None:
     try:
         backend.get(REACHABILITY_PROBE_FILE)
@@ -66,7 +60,7 @@ def require_reachable(backend: StorageBackend) -> None:
 
 def configured_choice(data_dir: Path) -> dict[str, Any] | None:
     configuration = load_configuration(sync_directory(data_dir))
-    return None if configuration is None else {"backend": configuration.backend, "settings": configuration.settings}
+    return None if configuration is None else {"backend": configuration.backend, "settings": configuration.masked_settings()}
 
 
 def describe(backend: type[StorageBackend]) -> dict[str, Any]:

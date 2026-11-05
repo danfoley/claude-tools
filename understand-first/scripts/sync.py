@@ -93,7 +93,7 @@ def show_status(data_dir: Path) -> None:
     if configuration is None:
         print("Storage: not configured, data stays on this computer only")
         return
-    print(f"Storage: {configuration.backend} {configuration.settings}")
+    print(f"Storage: {configuration.backend} {configuration.masked_settings()}")
     problem = SyncState(sync_directory(data_dir)).last_error
     if problem:
         print(f"Last sync problem: {problem}")

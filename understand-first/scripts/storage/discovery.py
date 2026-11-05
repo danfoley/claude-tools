@@ -22,13 +22,15 @@ class Discovered:
 
 def discover_backends(root: Path) -> Discovered:
     found = Discovered()
+    if not root.is_dir():
+        return found
     for directory in sorted(root.iterdir()):
         if not (directory / "__init__.py").is_file():
             continue
         try:
             backend = load_backend(directory)
             reject_taken_name(backend, found.backends)
-        except Exception as error:
+        except (Exception, SystemExit) as error:
             found.failures[directory.name] = f"{type(error).__name__}: {error}"
         else:
             found.backends[backend.name] = backend

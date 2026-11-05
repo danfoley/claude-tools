@@ -21,12 +21,12 @@ class SyncSchedule:
     def tick(self) -> None:
         now = self.clock()
         idle_seconds = now - (self.state.last_activity or now)
-        self.state.last_activity = now
         try:
             self.sync_when_due(now, idle_seconds)
         except Exception as error:
             self.state.last_error = str(error)
             raise
+        self.state.last_activity = now
         self.state.last_error = None
 
     def sync_when_due(self, now: float, idle_seconds: float) -> None:
@@ -37,8 +37,13 @@ class SyncSchedule:
 
     def push_is_due(self, now: float) -> bool:
         last_attempt = self.state.last_push_attempt
-        return last_attempt is None or now - last_attempt >= PUSH_INTERVAL_SECONDS
+        return last_attempt is None or not 0 <= now - last_attempt < PUSH_INTERVAL_SECONDS
 
     def attempt(self, now: float, action: Callable[[], object]) -> None:
-        self.state.last_push_attempt = now
-        action()
+        try:
+            skipped = action() is False
+        except Exception:
+            self.state.last_push_attempt = now
+            raise
+        if not skipped:
+            self.state.last_push_attempt = now

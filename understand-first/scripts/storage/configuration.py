@@ -5,6 +5,7 @@ import os
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from functools import cache
 from pathlib import Path
 
 from .backend import StorageBackend
@@ -15,6 +16,8 @@ from .sync import Sync
 
 CONFIGURATION_FILE = "config.json"
 BACKENDS_DIRECTORY = Path(__file__).resolve().parent / "backends"
+SECRET_WORDS = ("token", "secret", "password", "key")
+MASK = "********"
 
 
 class BackendUnavailableError(Exception):
@@ -25,6 +28,13 @@ class BackendUnavailableError(Exception):
 class StorageConfiguration:
     backend: str
     settings: dict[str, str] = field(default_factory=dict)
+
+    def masked_settings(self) -> dict[str, str]:
+        return {key: MASK if looks_secret(key) else value for key, value in self.settings.items()}
+
+
+def looks_secret(key: str) -> bool:
+    return any(word in key.lower() for word in SECRET_WORDS)
 
 
 def data_directory() -> Path:
@@ -71,6 +81,11 @@ def build_backend(configuration: StorageConfiguration, discovered: Discovered) -
         raise BackendUnavailableError(f"Backend {configuration.backend!r} could not start: {error}") from error
 
 
+@cache
+def installed_backends(backends_directory: Path) -> Discovered:
+    return discover_backends(backends_directory)
+
+
 def installed_backend(name: str, discovered: Discovered) -> type[StorageBackend]:
     if name in discovered.backends:
         return discovered.backends[name]
@@ -84,5 +99,5 @@ def sync_from_configuration(data_dir: Path, clock: Clock = time.time) -> Sync | 
     configuration = load_configuration(sync_directory(data_dir))
     if configuration is None:
         return None
-    backend = build_backend(configuration, discover_backends(BACKENDS_DIRECTORY))
+    backend = build_backend(configuration, installed_backends(BACKENDS_DIRECTORY))
     return Sync(data_dir, sync_directory(data_dir), backend, clock)

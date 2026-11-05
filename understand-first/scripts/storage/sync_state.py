@@ -32,8 +32,8 @@ class SyncState:
         return last_hash
 
     def record_hash(self, name: str, text: str) -> None:
-        self.recorded["hashes"][name] = hash_of(text)
-        self.save()
+        hashes = {**self.load()["hashes"], name: hash_of(text)}
+        self.record("hashes", hashes)
 
     @property
     def events_cursor(self) -> int:
@@ -72,7 +72,7 @@ class SyncState:
         self.record("last_error", problem)
 
     def record(self, key: str, value: Any) -> None:
-        self.recorded[key] = value
+        self.recorded = {**self.load(), key: value}
         self.save()
 
     def load(self) -> dict[str, Any]:
