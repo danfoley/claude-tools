@@ -163,7 +163,7 @@ fi
 context="${rules}"${storage_notice:+$'\n\n'"${storage_notice}"}$'\n\n'"Ledger path: ${ledger_path}"$'\n'"Event log path: ${events_path}"$'\n'"Source map: ${hooks_dir%/*}/sources.md"$'\n'"Added sources: ${data_dir}/sources-added.md"$'\n'"Work log: ${data_dir}/work.md"${viewer_url:+$'\n'"Live viewer: ${viewer_url}"}$'\n\n'"Ledger contents:"$'\n'"${ledger}"
 
 system_message=""
-is_compaction || system_message="$status_line"
+is_compaction || system_message=$'\n'"$status_line"
 [ -z "$update_notice" ] || system_message="${system_message:+${system_message}$'\n\n'}${update_notice}"
 system_message_field=""
 [ -z "$system_message" ] || system_message_field="\"systemMessage\":\"$(escape_for_json "$system_message")\","
