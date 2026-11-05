@@ -288,6 +288,24 @@ test.describe('stats screen', () => {
     await expect(row.getByRole('button', { name: 'Copy code locations' })).toBeVisible();
   });
 
+  test('a code snapshot shows numbered lines, marks the key lines, and keeps the explanation outside the block', async ({ page, ledger }) => {
+    ledger.addConcepts(conceptWithSnapshot('retry-safety'));
+    await expandConceptGroups(page);
+    const row = statsConcepts(page).filter({ hasText: 'retry-safety' });
+    await expect(row).toHaveCount(1, { timeout: 10_000 });
+
+    await row.locator('summary').first().click();
+    await row.getByText('Example 1:', { exact: false }).click();
+
+    const block = row.locator('.code');
+    await expect(block.locator('.code-head')).toContainText('services/Notifier.php:41-43');
+    await expect(block.locator('.code-line .ln')).toHaveText(['41', '42', '43']);
+    await expect(block.locator('.code-line.hl .ct')).toHaveText(['$this->messages->deleteClaimed($ids);']);
+    await expect(block).not.toContainText('the send then the delete');
+    await expect(row.locator('.code-caption')).toHaveText('the send then the delete');
+    await expect(row.getByRole('button', { name: 'Copy code' })).toBeVisible();
+  });
+
   test('an example written as plain text still shows under its number', async ({ page }) => {
     await statsConcepts(page).filter({ hasText: 'idempotency' }).locator('summary').first().click();
 
@@ -392,6 +410,26 @@ test.describe('languages screen', () => {
 
     await expect(statsConcepts(page)).toHaveText([/^idempotency/, /^lease-with-expiry/]);
     await expect(page.getByRole('heading', { name: 'Concepts (2 learning of 5)' })).toBeVisible();
+  });
+});
+
+test.describe('docs screen', () => {
+  test('the Docs tab lists what you can say and the slash commands', async ({ page }) => {
+    await page.getByRole('link', { name: 'Docs' }).click();
+
+    const docs = page.getByRole('region', { name: 'Docs' });
+    await expect(docs.getByRole('heading', { level: 2 })).toHaveText(['Things you can say', 'Stages', 'Slash commands']);
+    await expect(docs.locator('code')).toContainText(['Stage 1', 'Stage 6']);
+    await expect(page.getByRole('link', { name: 'Docs' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  test('the Docs tab can be opened straight from its address and names the override phrases', async ({ page }) => {
+    await page.goto('/#docs');
+
+    const docs = page.getByRole('region', { name: 'Docs' });
+    await expect(docs.locator('code', { hasText: '"I don\'t know"' })).toBeVisible();
+    await expect(docs.locator('code', { hasText: '"skip the gates"' })).toBeVisible();
+    await expect(docs.locator('code', { hasText: '/understand-first:learn [topic]' })).toBeVisible();
   });
 });
 
@@ -1019,6 +1057,19 @@ function conceptWithExamples(name: string, examples: string[]): string {
     return `  - ${example} | what: what ${number} | where: where ${number} | why: why ${number}`;
   });
   return [`### ${name}`, '- status: new', '- examples:', ...exampleLines, ''].join('\n');
+}
+function conceptWithSnapshot(name: string): string {
+  return [
+    `### ${name}`,
+    '- status: new',
+    '- examples:',
+    '  - digest (PR 101) | what: sends | where: the send then the delete | why: safe',
+    '    code: services/Notifier.php:41',
+    '    > $mail = $this->build($ids);',
+    '    > $this->sender->send($mail);',
+    '    >> $this->messages->deleteClaimed($ids);',
+    '',
+  ].join('\n');
 }
 function conceptBlock(name: string, status: string, applied: Record<string, string> = {}, example = 'something'): string {
   const appliedLines = Object.entries(applied).map(([language, note]) => `- applied in ${language}: ${note}`);

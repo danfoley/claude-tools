@@ -156,6 +156,31 @@ class ViewerTest(unittest.TestCase):
             "webhook (PR 117): skip stored ids",
         ])
 
+    def test_an_example_carries_its_code_snapshot_with_line_numbers_and_highlights(self):
+        note = "digest (PR 101) | what: sends | where: the send then the delete | why: safe"
+        ledger_lines = [
+            "### idempotency",
+            "- examples:",
+            f"  - {note}",
+            "    code: services/Notifier.php:41",
+            "    > $this->sender->send($mail);",
+            "    >> $this->messages->deleteClaimed($ids);",
+        ]
+        concept = viewer.parse_concepts(ledger_lines)[0]
+        self.assertEqual(concept["exampleNotes"], [note])
+        self.assertEqual(concept["exampleCode"], [{
+            "path": "services/Notifier.php",
+            "start": 41,
+            "lines": [
+                {"text": "$this->sender->send($mail);", "highlight": False},
+                {"text": "$this->messages->deleteClaimed($ids);", "highlight": True},
+            ],
+        }])
+
+    def test_an_example_without_a_snapshot_has_no_code(self):
+        concept = viewer.parse_concepts(["### idempotency", "- examples:", "  - digest | where: somewhere"])[0]
+        self.assertEqual(concept["exampleCode"], [None])
+
     def test_state_reports_how_a_concept_was_applied_in_each_language(self):
         _, text = self.request("GET", "/api/state")
         concept = json.loads(text)["concepts"][0]

@@ -164,6 +164,16 @@
   .code { border: 1px solid var(--code-line); border-radius: 8px; background: var(--code-bg); overflow: hidden; }
   .code-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 5px 6px 5px 12px; font-size: 12px; color: var(--code-muted); border-bottom: 1px solid var(--code-line); }
   .code pre { margin: 0; padding: 10px 12px; font: 12.5px/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--code-fg); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .code-lines { padding: 8px 0; font: 12.5px/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--code-fg); overflow-x: auto; }
+  .code-line { display: grid; grid-template-columns: 3.5em 1fr; }
+  .code-line .ln { text-align: right; padding-right: 1em; color: var(--code-muted); user-select: none; }
+  .code-line .ct { white-space: pre; padding-right: 12px; }
+  .code-line.hl { background: color-mix(in srgb, var(--accent) 22%, transparent); box-shadow: inset 3px 0 0 var(--accent); }
+  #docs:not([hidden]) { display: grid; gap: 16px; max-width: 780px; margin: 0 auto; width: 100%; }
+  #docs h2 { font-size: 16px; text-transform: none; letter-spacing: 0; color: var(--fg); }
+  #docs ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+  #docs code { font: 13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--code-bg); color: var(--code-fg); border: 1px solid var(--code-line); border-radius: 5px; padding: 1px 6px; }
+  .code-caption { color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
   .code .p { color: var(--code-path); }
   .code .s { color: var(--code-sym); }
   .code button.copy { border-color: var(--code-line); background: transparent; color: var(--code-muted); border-radius: 6px; padding: 2px 9px; font-size: 12px; }
@@ -206,6 +216,7 @@
     <a href="#projects" id="nav-projects">Projects</a>
     <a href="#languages" id="nav-languages">Languages</a>
     <a href="#settings" id="nav-settings">Settings</a>
+    <a href="#docs" id="nav-docs">Docs</a>
   </nav>
   <div class="live"><span class="dot" id="dot"></span><span id="live-text">connecting</span></div>
 </header>
@@ -215,6 +226,7 @@
   <section id="projects" aria-label="Projects" hidden></section>
   <section id="languages" aria-label="Languages" hidden></section>
   <section id="settings" aria-label="Settings" hidden></section>
+  <section id="docs" aria-label="Docs" hidden></section>
 </main>
 <div id="toast" role="status" hidden></div>
 <script>
@@ -224,7 +236,39 @@
   var RUNGS = 4;
   var FILTER_KEY = 'understand-first-status-filter';
   var LANGUAGE_KEY = 'understand-first-language';
-  var SCREENS = ['stats', 'recent', 'projects', 'languages', 'settings'];
+  var SCREENS = ['stats', 'recent', 'projects', 'languages', 'settings', 'docs'];
+  var DOCS = [
+    { title: 'Things you can say', points: [
+      ['"I don\'t know"', 'Claude teaches it, you say it back. Never a failure.'],
+      ['"skip the gates"', 'Override mode: Claude does the task without gates. It is logged as skipped.'],
+      ['"go back a stage"', 'Slow the process down. Moving up happens on its own.'],
+      ['"help me understand this PR"', 'A walkthrough of a PR, commit, file or function. Same for "walk me through this".'],
+      ['"review this PR"', 'A review that keeps you in the loop.'],
+      ['"teach me something"', 'Study mode, no work and no gates.'],
+      ['"do this part for me"', 'Claude asks "are you sure?" and "why?", then does it and logs it as delegated.']
+    ] },
+    { title: 'Stages', points: [
+      ['Stage 1', 'You state the problem in your own words before Claude proposes anything.'],
+      ['Stage 2', 'You explain the change back before it is committed. The code dial starts.'],
+      ['Stage 3', 'You pick and retell the design, predict test results, and fix review findings first.'],
+      ['Stage 4', 'Skeptical-architect questions at teach-back.'],
+      ['Stage 5', 'For work you build, a pseudocode outline of the whole change in your own words.'],
+      ['Stage 6', 'A retro at the end of each task. The full process.']
+    ] },
+    { title: 'Slash commands', points: [
+      ['/understand-first:menu', 'Your stats.'],
+      ['/understand-first:menu settings', 'Settings.'],
+      ['/understand-first:menu recent [words]', 'Recent work, optionally searched.'],
+      ['/understand-first:menu skip', 'Skip the gates for the next task.'],
+      ['/understand-first:menu stage <n>', 'Go back to stage n.'],
+      ['/understand-first:menu reset', 'Back to stage 1. Your concepts stay.'],
+      ['/understand-first:menu language <name>', 'Set your main language.'],
+      ['/understand-first:menu add <language>', 'Add a language to the code dial.'],
+      ['/understand-first:menu dial <language>', 'Lower that language\'s dial by one rung.'],
+      ['/understand-first:menu viewer on|off|open|stop|status', 'Control this viewer.'],
+      ['/understand-first:learn [topic]', 'Study mode on a topic.']
+    ] }
+  ];
   var STATUS_ORDER = ['learning', 'getting it', 'solid', 'new'];
   var EVENT_LABELS = {
     'delegated': 'Delegated', 'dont-know': 'Said "I don\'t know"', 'gate-passed': 'Gate passed', 'gate-retry': 'Gate retry',
@@ -676,18 +720,37 @@
       el('span', { 'class': 'exn', text: (label || 'Example ' + (index + 1)) + ': ' }),
       el('span', { 'class': 'ext' }, marked(parts[0], tokens))
     ];
-    var body = el('div', { 'class': 'exbody' }, parts.slice(1).map(function (part) { return exampleDetail(concept, part, tokens); }));
+    var snapshot = (concept.exampleCode || [])[index] || null;
+    var body = el('div', { 'class': 'exbody' }, parts.slice(1).map(function (part) { return exampleDetail(concept, part, tokens, snapshot); }));
     return el('div', { 'class': 'example-item' }, disclosure('example:' + concept.name + '|' + index, summary, body));
   }
 
-  function exampleDetail(concept, part, tokens) {
+  function exampleDetail(concept, part, tokens, snapshot) {
     var colon = part.indexOf(': ');
     if (colon < 0) return el('div', { 'class': 'example-detail' }, marked(part, tokens));
     var key = part.slice(0, colon);
     var text = part.slice(colon + 2);
     var label = key === 'why' ? 'Why it is ' + concept.name : EXAMPLE_LABELS[key] || key;
+    if (key === 'where' && snapshot) return [snapshotBlock(label, snapshot), el('div', { 'class': 'code-caption' }, marked(text, tokens))];
     if (key === 'where') return codeBlock(label, text, tokens);
     return el('div', { 'class': 'example-detail' }, el('b', { text: label + ': ' }), marked(text, tokens));
+  }
+
+  function snapshotBlock(label, snapshot) {
+    var last = snapshot.start + snapshot.lines.length - 1;
+    var range = snapshot.path + ':' + snapshot.start + (last > snapshot.start ? '-' + last : '');
+    var code = snapshot.lines.map(function (line) { return line.text; }).join('\n');
+    return el('div', { 'class': 'code' },
+      el('div', { 'class': 'code-head' }, el('span', { text: label + ' · ' + range }), copyButton(code, 'Copy code')),
+      el('div', { 'class': 'code-lines' }, snapshot.lines.map(function (line, index) { return snapshotLine(line, snapshot.start + index); }))
+    );
+  }
+
+  function snapshotLine(line, number) {
+    return el('div', { 'class': 'code-line' + (line.highlight ? ' hl' : '') },
+      el('span', { 'class': 'ln', text: String(number) }),
+      el('span', { 'class': 'ct', text: line.text })
+    );
   }
 
   function codeBlock(label, locations, tokens) {
@@ -705,8 +768,8 @@
     });
   }
 
-  function copyButton(text) {
-    var button = el('button', { type: 'button', 'class': 'copy', 'aria-label': 'Copy code locations', onclick: function () { copyText(button, text); } }, 'Copy');
+  function copyButton(text, ariaLabel) {
+    var button = el('button', { type: 'button', 'class': 'copy', 'aria-label': ariaLabel || 'Copy code locations', onclick: function () { copyText(button, text); } }, 'Copy');
     return button;
   }
 
@@ -1004,6 +1067,23 @@
     replaceChildren(root, [storageSettings(), stageSettings(), languageSettings(), modeSettings(), skipSettings(), resetSettings()]);
   }
 
+  function renderDocs() {
+    var root = document.getElementById('docs');
+    if (root.firstChild) return;
+    replaceChildren(root, DOCS.map(docsTopic));
+  }
+
+  function docsTopic(topic) {
+    return el('div', { 'class': 'card' },
+      el('h2', { text: topic.title }),
+      el('ul', null, topic.points.map(docsPoint))
+    );
+  }
+
+  function docsPoint(point) {
+    return el('li', null, el('code', { text: point[0] }), ' ' + point[1]);
+  }
+
   function backendNamed(name) {
     return state.storage.backends.filter(function (backend) { return backend.name === name; })[0];
   }
@@ -1257,6 +1337,7 @@
     renderProjects(false);
     renderLanguages();
     renderSettings();
+    renderDocs();
   }
 
   function refresh() {

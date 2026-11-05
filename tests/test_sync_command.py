@@ -335,7 +335,7 @@ class SessionStartHookTest(TemporaryFolders):
     def test_a_brand_new_install_says_there_is_no_ledger_yet(self):
         self.assertEqual(
             self.system_message(),
-            "Running understand first (no ledger yet, the first session creates it)",
+            "\nRunning understand first (no ledger yet, the first session creates it)",
         )
 
     def test_every_startup_says_the_level_and_that_the_viewer_is_off(self):
@@ -343,7 +343,7 @@ class SessionStartHookTest(TemporaryFolders):
         (self.data / "ledger.md").write_text("stage: 3\nstage-since: 2026-10-26\n")
         self.assertEqual(
             self.system_message(),
-            "Running understand first at level 3. The viewer is off: turn it on with /understand-first:menu viewer on",
+            "\nRunning understand first at level 3. The viewer is off: turn it on with /understand-first:menu viewer on",
         )
 
     def test_startup_gives_the_viewer_address_when_the_viewer_is_on(self):
@@ -355,7 +355,7 @@ class SessionStartHookTest(TemporaryFolders):
         (self.data / "ledger.md").write_text("stage: 3\nviewer: on\n")
         self.assertEqual(
             self.system_message(environment=environment),
-            f"Running understand first at level 3, view is here http://127.0.0.1:{environment['UNDERSTAND_FIRST_PORT']}",
+            f"\nRunning understand first at level 3, view is here http://127.0.0.1:{environment['UNDERSTAND_FIRST_PORT']}",
         )
 
     def test_a_compaction_does_not_repeat_the_startup_line(self):

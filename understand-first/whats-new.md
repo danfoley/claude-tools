@@ -1,3 +1,7 @@
+## 0.12.0
+- "Where in the code" now shows the real code as a block with line numbers and the key lines marked. The explanation sits under the block, not inside it. Examples recorded before this keep the old text-only box.
+- New Docs tab in the viewer: what you can say ("I don't know", "skip the gates" and more) and the slash commands, at a glance.
+
 ## 0.11.2
 - The session start line has a blank line above it.
 

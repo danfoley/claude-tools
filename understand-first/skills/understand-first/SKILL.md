@@ -125,7 +125,7 @@ Do not skip ahead. A gate is active only from the stage that introduces it (see 
    - From stage 4, Claude plays a skeptical architect and asks five questions: why not simpler, what fails, what is untested, what was rejected, what are the known limits.
    - From stage 5, the learner gives a pseudocode outline of the whole change in their own words, as the check that they could rebuild it. They never write the whole change from scratch.
    - The learner's own words from the explanation become the PR description's Problem and What-changes sections. Claude adds Testing and known limitations.
-7. **Retention.** Update the ledger: for each abstract concept the work touched, its status, date, the learner's own one-line explanation of the idea, a recall question, and the new example from this work, written as what it is, where in the code and why it is that concept (see Concept ledger). When the work applied a concept in a language, add or replace that concept's one `- applied in <Language>: <how it looks in that language, in one line>` line. Add or update this piece of work's entry in the work log (see Work log). Make sure the event log has every event from the session. If the ledger header has `stats-mode: dashboard`, refresh the dashboard by following the Publish section of the `/understand-first:menu` command (`commands/menu.md`, in the plugin folder that holds `sources.md`), without asking, and say in one line that it was updated. If publishing fails, say so and carry on; never block the work.
+7. **Retention.** Update the ledger: for each abstract concept the work touched, its status, date, the learner's own one-line explanation of the idea, a recall question, and the new example from this work, written as what it is, where in the code and why it is that concept, with a snapshot of the real code (see Concept ledger). When the work applied a concept in a language, add or replace that concept's one `- applied in <Language>: <how it looks in that language, in one line>` line. Add or update this piece of work's entry in the work log (see Work log). Make sure the event log has every event from the session. If the ledger header has `stats-mode: dashboard`, refresh the dashboard by following the Publish section of the `/understand-first:menu` command (`commands/menu.md`, in the plugin folder that holds `sources.md`), without asking, and say in one line that it was updated. If publishing fails, say so and carry on; never block the work.
 
 ## Light gates (mechanical chores)
 
@@ -221,8 +221,14 @@ viewer: off
 - applied in TypeScript: an idempotency key header the server remembers
 - examples:
   - email digest (PR 101) | what: the sender sends a conversation's emails, then deletes its rows | where: DigestNotifier::sendConversations, the sendEmail call followed by deleteRows | why: once a conversation's rows are gone a retry cannot send it again, so running the job twice gives the same result as once
+    code: src/DigestNotifier.php:41
+    > $mail = $this->buildDigest($conversation);
+    >> $this->emailSender->sendEmail($mail);
+    >> $this->messages->deleteRows($conversation->id());
   - webhook handler (PR 117) | what: a redelivered event is skipped because its id was already stored | where: WebhookController::handle, the seenEventIds check | why: handling the same event twice changes nothing, which is idempotency
 ```
+
+Code snapshot on an example: right under the example line, add `    code: <path>:<first line number>` (4 spaces), then one line per line of the real code as it was when the example was recorded: `    > ` before an ordinary line, `    >> ` before a line the example is about (the key lines). Copy the whole block that makes the point (the full statement or method body, not only the key line), keep its indentation, and number from the file's real first line. Keep it to about 30 lines. The `where:` text stays as the one-line explanation and the viewer shows it under the code block, so never describe the code inside the block. An example without a snapshot still works and shows only the `where:` text.
 
 Statuses (they describe where the learner is on a journey, never a grade; not fully understanding something yet is normal and expected):
 - **new**: not yet covered or assessed.
