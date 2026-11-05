@@ -19,6 +19,8 @@
     --getting-it: #1f5fa8;
     --solid: #1a7a3f;
     --danger: #b3261e;
+    --page-w: 1360px;
+    --code-bg: #f1f3f8; --code-fg: #232a3b; --code-line: #dde1ea; --code-muted: #5d667a; --code-path: #1d4fb8; --code-sym: #0b7a75;
     color-scheme: light;
   }
   @media (prefers-color-scheme: dark) {
@@ -26,16 +28,18 @@
       --bg: #14171b; --panel: #1c2026; --fg: #e8eaed; --muted: #9aa3ae; --line: #2d333b;
       --accent: #7aa2f7; --accent-fg: #101319; --new: #9aa3ae; --learning: #f0b24a;
       --getting-it: #7cb8f2; --solid: #5fcf8a; --danger: #ff8a80; color-scheme: dark;
+      --code-bg: #0d1017; --code-fg: #d6dbe8; --code-line: #262c3a; --code-muted: #8d97ad; --code-path: #86a8ff; --code-sym: #6fd3c8;
     }
   }
   :root[data-theme="dark"] {
     --bg: #14171b; --panel: #1c2026; --fg: #e8eaed; --muted: #9aa3ae; --line: #2d333b;
     --accent: #7aa2f7; --accent-fg: #101319; --new: #9aa3ae; --learning: #f0b24a;
     --getting-it: #7cb8f2; --solid: #5fcf8a; --danger: #ff8a80; color-scheme: dark;
+    --code-bg: #0d1017; --code-fg: #d6dbe8; --code-line: #262c3a; --code-muted: #8d97ad; --code-path: #86a8ff; --code-sym: #6fd3c8;
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  header { display: flex; align-items: center; gap: 24px; padding: 14px max(16px, env(safe-area-inset-left)); border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
+  header { display: flex; align-items: center; gap: 24px; padding: 14px max(16px, env(safe-area-inset-left), calc((100% - var(--page-w)) / 2)); border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
   h1 { font-size: 17px; margin: 0; letter-spacing: 0.01em; }
   nav { display: flex; gap: 4px; }
   nav a { color: var(--muted); text-decoration: none; padding: 6px 12px; border-radius: 6px; }
@@ -43,7 +47,7 @@
   .live { margin-left: auto; color: var(--muted); font-size: 13px; display: flex; align-items: center; gap: 6px; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--solid); }
   .dot.off { background: var(--danger); }
-  main { max-width: 880px; margin: 0 auto; padding: 20px max(16px, env(safe-area-inset-left)) 48px; display: grid; gap: 16px; }
+  main { max-width: var(--page-w); margin: 0 auto; padding: 20px max(16px, env(safe-area-inset-left)) 48px; display: grid; gap: 16px; }
   section[hidden] { display: none; }
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 10px; min-width: 0; }
   h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0; }
@@ -79,10 +83,14 @@
   .work-concept .name { font-weight: 600; overflow-wrap: anywhere; }
   .work-concept .detail { grid-column: 1 / -1; color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
   .results { display: grid; gap: 16px; }
-  .tabs { display: flex; flex-wrap: wrap; gap: 8px; }
-  .tab { border-radius: 999px; padding: 4px 14px; }
-  .tab.active { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); font-weight: 600; }
-  .steps.rungs { grid-template-columns: repeat(4, 1fr); }
+  .tabs { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); justify-self: start; }
+  .tab { border: 0; border-radius: 6px; padding: 5px 14px; background: transparent; color: var(--muted); }
+  .tab.active { background: var(--panel); color: var(--fg); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / 0.14); }
+  .rungs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; list-style: none; margin: 0; padding: 0; }
+  .rungs li { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
+  .rungs .bar { height: 8px; border-radius: 4px; background: var(--line); }
+  .rungs li.done .bar { background: var(--accent); }
+  .rungs li.current { color: var(--fg); font-weight: 600; }
   .row .detail.none { font-style: italic; }
   .chip.active { font-weight: 650; box-shadow: inset 0 0 0 1px currentColor; background: color-mix(in srgb, currentColor 16%, transparent); }
   .row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 10px 0; border-top: 1px solid var(--line); }
@@ -101,7 +109,6 @@
   .concept-row .body { display: grid; gap: 8px; margin-top: 8px; }
   .concept-row .field { overflow-wrap: anywhere; }
   .concept-row .example { color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
-  .example-detail { padding-left: 1.2em; }
   .event { display: grid; grid-template-columns: 8.5em minmax(0, 1fr); gap: 4px 12px; padding: 6px 0; border-top: 1px solid var(--line); font-size: 14px; }
   .event:first-of-type { border-top: 0; }
   .event .when { color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -116,6 +123,76 @@
   input, select { font: inherit; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; min-width: 0; }
   #toast { position: fixed; bottom: max(16px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 8px; max-width: calc(100vw - 32px); }
   #toast[hidden] { display: none; }
+  #stats:not([hidden]) { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 16px 24px; align-items: start; }
+  #stats > .summary { grid-column: 1 / -1; }
+  #recent:not([hidden]) { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 16px 24px; align-items: start; }
+  #recent > .card:first-child { position: sticky; top: 16px; }
+  #languages:not([hidden]) { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 16px 24px; align-items: start; }
+  #languages > :nth-child(-n+2) { grid-column: 1 / -1; }
+  #settings:not([hidden]) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 24px; align-items: start; }
+  #projects:not([hidden]) { display: grid; grid-template-columns: minmax(280px, 380px) minmax(0, 1fr); gap: 24px; align-items: start; }
+  .card.danger-zone { border-color: var(--danger); }
+  .card.danger-zone > h2 { color: var(--danger); }
+  .summary { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); align-items: center; gap: 16px 28px; }
+  .summary .last { grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 10px; font-size: 13px; }
+  .counts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .count { flex: 1; min-width: 6.5em; display: grid; justify-items: start; padding: 10px 12px; border: 1px solid transparent; border-radius: 8px; background: color-mix(in srgb, currentColor 12%, transparent); font-size: 13px; }
+  .count b { font-size: 24px; line-height: 1.15; font-weight: 650; }
+  .count.new { color: var(--new); } .count.learning { color: var(--learning); }
+  .count.getting-it { color: var(--getting-it); } .count.solid { color: var(--solid); }
+  .count.active { border-color: currentColor; }
+  .fold { border-top: 1px solid var(--line); }
+  .fold:first-of-type { border-top: 0; }
+  .fold > summary { display: flex; align-items: center; gap: 10px; padding: 10px 0; cursor: pointer; list-style: none; }
+  .fold > summary::-webkit-details-marker { display: none; }
+  .fold > summary::before { content: "\25B8"; color: var(--muted); width: 1.2em; }
+  .fold[open] > summary::before { content: "\25BE"; }
+  .concept-row summary .meta { color: var(--muted); font-size: 13px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .tag { margin-left: 8px; font-size: 12px; font-weight: 500; color: var(--accent); border: 1px solid currentColor; border-radius: 999px; padding: 0 8px; }
+  .example-item { border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+  .example-item summary { display: flex; gap: 10px; align-items: baseline; padding: 8px 12px; cursor: pointer; list-style: none; }
+  .example-item summary::-webkit-details-marker { display: none; }
+  .example-item summary::before { content: "\25B8"; color: var(--muted); }
+  .example-item details[open] > summary::before { content: "\25BE"; }
+  .example-item details[open] > summary { border-bottom: 1px solid var(--line); }
+  .example-item summary:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+  .exn { font-size: 13px; color: var(--muted); white-space: nowrap; }
+  .ext { font-weight: 600; overflow-wrap: anywhere; }
+  .exbody { display: grid; gap: 12px; padding: 12px; }
+  .example-detail { padding-left: 0; overflow-wrap: anywhere; }
+  .code { border: 1px solid var(--code-line); border-radius: 8px; background: var(--code-bg); overflow: hidden; }
+  .code-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 5px 6px 5px 12px; font-size: 12px; color: var(--code-muted); border-bottom: 1px solid var(--code-line); }
+  .code pre { margin: 0; padding: 10px 12px; font: 12.5px/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--code-fg); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .code .p { color: var(--code-path); }
+  .code .s { color: var(--code-sym); }
+  .code button.copy { border-color: var(--code-line); background: transparent; color: var(--code-muted); border-radius: 6px; padding: 2px 9px; font-size: 12px; }
+  .project-column { display: grid; gap: 10px; position: sticky; top: 16px; max-height: calc(100vh - 32px); grid-template-rows: auto auto minmax(0, 1fr); }
+  .project-list { overflow-y: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+  .project-item { display: grid; gap: 5px; width: 100%; text-align: left; padding: 11px 14px; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; }
+  .project-item:last-child { border-bottom: 0; }
+  .project-item:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+  .project-item[aria-current="true"] { background: color-mix(in srgb, var(--accent) 12%, transparent); box-shadow: inset 0 0 0 2px var(--accent); }
+  .project-item .title { font-weight: 600; overflow-wrap: anywhere; }
+  .project-item .refs, .ref { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; color: var(--muted); }
+  .ref { border: 1px solid var(--line); background: var(--bg); border-radius: 6px; padding: 1px 8px; }
+  .project-detail { display: grid; gap: 16px; min-width: 0; }
+  .project-detail h1 { margin: 0; font-size: 21px; line-height: 1.25; overflow-wrap: anywhere; }
+  .project-detail h3 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+  .project-detail p { margin: 0; max-width: 70ch; overflow-wrap: anywhere; }
+  .two-up { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .skill-row { display: grid; grid-template-columns: minmax(0, 190px) 150px minmax(0, 1fr); gap: 4px 14px; padding: 9px 0; border-top: 1px solid var(--line); align-items: baseline; }
+  .skill-row:first-of-type { border-top: 0; }
+  .level { display: inline-flex; align-items: center; gap: 8px; }
+  .meter { display: inline-flex; gap: 3px; }
+  .meter i { width: 14px; height: 6px; border-radius: 3px; background: var(--line); display: block; }
+  .meter i.on.learning { background: var(--learning); } .meter i.on.getting-it { background: var(--getting-it); } .meter i.on.solid { background: var(--solid); }
+  .not-recorded { color: var(--muted); border: 1px dashed var(--line); border-radius: 8px; padding: 10px 12px; font-size: 14px; }
+  @media (max-width: 960px) {
+    #stats:not([hidden]), #recent:not([hidden]), #languages:not([hidden]), #settings:not([hidden]), #projects:not([hidden]) { grid-template-columns: 1fr; }
+    #recent > .card:first-child, .project-column { position: static; max-height: none; }
+    .project-list { max-height: 320px; }
+    .two-up, .skill-row { grid-template-columns: 1fr; }
+  }
   @media (max-width: 520px) { .event { grid-template-columns: 1fr; } }
 </style>
 </head>
@@ -125,6 +202,7 @@
   <nav>
     <a href="#stats" id="nav-stats">Stats</a>
     <a href="#recent" id="nav-recent">Recent</a>
+    <a href="#projects" id="nav-projects">Projects</a>
     <a href="#languages" id="nav-languages">Languages</a>
     <a href="#settings" id="nav-settings">Settings</a>
   </nav>
@@ -133,6 +211,7 @@
 <main>
   <section id="stats" aria-label="Stats" hidden></section>
   <section id="recent" aria-label="Recent" hidden></section>
+  <section id="projects" aria-label="Projects" hidden></section>
   <section id="languages" aria-label="Languages" hidden></section>
   <section id="settings" aria-label="Settings" hidden></section>
 </main>
@@ -144,11 +223,23 @@
   var RUNGS = 4;
   var FILTER_KEY = 'understand-first-status-filter';
   var LANGUAGE_KEY = 'understand-first-language';
-  var SCREENS = ['stats', 'recent', 'languages', 'settings'];
+  var SCREENS = ['stats', 'recent', 'projects', 'languages', 'settings'];
+  var STATUS_ORDER = ['learning', 'getting it', 'solid', 'new'];
+  var EVENT_LABELS = {
+    'delegated': 'Delegated', 'dont-know': 'Said "I don\'t know"', 'gate-passed': 'Gate passed', 'gate-retry': 'Gate retry',
+    'phase-end': 'Phase ended', 'phase-start': 'Phase started', 'recall': 'Recall', 'setting-changed': 'Setting changed',
+    'study-check': 'Study check', 'study-end': 'Study ended', 'study-start': 'Study started', 'teach-back': 'Teach-back',
+    'walkthrough-end': 'Walkthrough ended', 'walkthrough-start': 'Walkthrough started'
+  };
+  var DAYS_SHOWN = 2;
+  var openGroups = {};
+  var openDays = {};
+  var showOlderDays = false;
   var UNDERSTANDING_LEVELS = ['understood', 'partly', 'not yet', 'skipped', 'not assessed'];
   var WORK_KINDS = ['built', 'walked through', 'reviewed'];
   var UNDERSTANDING_TONES = { 'understood': 'solid', 'partly': 'learning', 'not yet': 'bad', 'skipped': 'learning' };
   var EXAMPLE_LABELS = { 'what': 'What it is', 'where': 'Where in the code' };
+  var CODE_REFERENCE = /([\w.-]+(?:\/[\w.-]+)+\.\w+|\b[A-Za-z_]\w*::\w+)/;
   var recentQuery = '';
   var understandingFilter = '';
   var kindFilter = '';
@@ -157,6 +248,12 @@
   var queryThatOpenedCards = '';
   var recentParts = null;
   var shownRecent = '';
+  var projectQuery = '';
+  var projectUnderstanding = '';
+  var projectKind = '';
+  var selectedProjectKey = '';
+  var projectParts = null;
+  var shownProjects = '';
   var RUNG_NAMES = ['one line', 'one test assertion', 'one whole test', 'one whole function'];
   var state = null;
   var shownStats = '';
@@ -257,25 +354,19 @@
     }).catch(function () { showToast('Could not reach the viewer.'); });
   }
 
-  function filterChip(status, label) {
+  function countTile(status, total) {
     var isActive = statusFilter === status;
     return el('button', {
       type: 'button',
-      'class': 'chip ' + statusClass(status) + (isActive ? ' active' : ''),
+      'class': 'count ' + statusClass(status) + (isActive ? ' active' : ''),
       'aria-pressed': isActive ? 'true' : 'false',
       title: isActive ? 'Show all concepts' : 'Show only ' + status + ' concepts',
-      onclick: function () { setStatusFilter(isActive ? '' : status); },
-      text: label
-    });
+      onclick: function () { setStatusFilter(isActive ? '' : status); }
+    }, el('b', { text: String(total) }), ' ' + status);
   }
 
   function statusClass(status) {
     return status.replace(/ /g, '-');
-  }
-
-  function statusChip(status) {
-    var name = status || 'new';
-    return filterChip(name, name);
   }
 
   function showAllChip() {
@@ -292,38 +383,70 @@
     return counts;
   }
 
-  function stageCard() {
+  function newestFirst(events) {
+    return events.slice().sort(function (a, b) { return (b.date + ' ' + b.time).localeCompare(a.date + ' ' + a.time); });
+  }
+
+  function eventTitle(event) {
+    return (EVENT_LABELS[event.event] || event.event || '') + (event.concept ? ' ' + event.concept : '');
+  }
+
+  function summaryCard() {
+    var counts = countByStatus(state.concepts);
     var steps = [];
     for (var i = 1; i <= state.stageCount; i++) steps.push(el('div', { 'class': i <= state.stage ? 'step done' : 'step' }));
-    return el('div', { 'class': 'card' },
-      el('h2', { text: 'Stage' }),
-      el('div', { 'class': 'big', text: 'Stage ' + state.stage + ' of ' + state.stageCount }),
-      el('div', { 'class': 'steps' }, steps),
-      el('div', { 'class': 'muted', text: 'since ' + (state.stageSince || 'unknown') + ' · stats ' + state.statsMode })
+    var tiles = STATUS_ORDER
+      .filter(function (status) { return status !== 'new' || counts[status] > 0 || statusFilter === 'new'; })
+      .map(function (status) { return countTile(status, counts[status]); });
+    var latest = newestFirst(state.events)[0];
+    return el('div', { 'class': 'card summary' },
+      el('div', { 'class': 'stage' },
+        el('h2', { text: 'Stage' }),
+        el('div', { 'class': 'big', text: 'Stage ' + state.stage + ' of ' + state.stageCount }),
+        el('div', { 'class': 'steps' }, steps),
+        el('div', { 'class': 'muted', text: 'since ' + (state.stageSince || 'unknown') + ' · stats ' + state.statsMode })),
+      el('div', { 'class': 'counts' }, tiles),
+      latest ? el('div', { 'class': 'muted last', text: 'Last activity ' + (latest.date || '').slice(5) + ' ' + (latest.time || '') + ' · ' + eventTitle(latest) }) : null
+    );
+  }
+
+  function conceptRow(concept) {
+    var meta = [concept.examples + ' example' + (concept.examples === 1 ? '' : 's'), concept.verified ? 'verified ' + concept.verified : ''].filter(Boolean).join(' · ');
+    var summary = [
+      el('div', { 'class': 'name' }, concept.name, concept.study ? el('span', { 'class': 'tag', text: 'studied' }) : null),
+      el('div', { 'class': 'meta', text: meta })
+    ];
+    return el('div', { 'class': 'concept-row', role: 'listitem' }, disclosure(conceptKey(concept), summary, el('div', { 'class': 'body' }, conceptFields(concept, []))));
+  }
+
+  function fold(openStore, key, isOpenByDefault, summaryContent, body) {
+    var details = el('details', { 'class': 'fold' },
+      el('summary', { onclick: function () { openStore[key] = !details.open; } }, summaryContent),
+      body
+    );
+    details.open = openStore[key] !== undefined ? openStore[key] : isOpenByDefault;
+    return details;
+  }
+
+  function conceptGroup(status, concepts) {
+    if (!concepts.length) return null;
+    return fold(openGroups, status, status === 'learning' || statusFilter !== '',
+      [el('span', { 'class': 'chip static ' + statusClass(status), text: status }), el('span', { 'class': 'muted', text: String(concepts.length) })],
+      el('div', { role: 'list', 'aria-label': status + ' concepts' }, concepts.map(conceptRow))
     );
   }
 
   function conceptsCard() {
-    var counts = countByStatus(state.concepts);
-    var chips = Object.keys(counts).map(function (status) { return filterChip(status, counts[status] + ' ' + status); });
-    if (statusFilter) chips.push(showAllChip());
     var visible = state.concepts.filter(hasStatus);
-    var rows = visible.map(function (concept) {
-      var detail = concept.words || 'No explanation of your own yet.';
-      var meta = [concept.verified ? 'verified ' + concept.verified : '', concept.study ? 'studied ' + concept.study : '', concept.examples + ' example' + (concept.examples === 1 ? '' : 's')].filter(Boolean).join(' · ');
-      var summary = [
-        el('div', { 'class': 'name', text: concept.name }),
-        statusChip(concept.status),
-        el('div', { 'class': 'detail', text: detail + (meta ? ' (' + meta + ')' : '') })
-      ];
-      return el('div', { 'class': 'concept-row', role: 'listitem' }, disclosure(conceptKey(concept), summary, el('div', { 'class': 'body' }, conceptFields(concept, []))));
+    var groups = STATUS_ORDER.map(function (status) {
+      return conceptGroup(status, visible.filter(function (concept) { return (concept.status || 'new') === status; }));
     });
     var heading = statusFilter ? visible.length + ' ' + statusFilter + ' of ' + state.concepts.length : String(state.concepts.length);
     var emptyText = statusFilter ? 'No ' + statusFilter + ' concepts.' : 'None yet.';
     return el('div', { 'class': 'card' },
       el('h2', { text: 'Concepts (' + heading + ')' }),
-      el('div', { 'class': 'chips' }, chips),
-      rows.length ? el('div', { role: 'list', 'aria-label': 'Concepts' }, rows) : el('div', { 'class': 'muted', text: emptyText })
+      statusFilter ? el('div', { 'class': 'chips' }, showAllChip()) : null,
+      visible.length ? groups : el('div', { 'class': 'muted', text: emptyText })
     );
   }
 
@@ -331,18 +454,56 @@
     return event.concept || event.note || '';
   }
 
-  function eventsCard() {
-    var coreEvents = state.events.filter(function (event) { return !event.language; });
-    var rows = coreEvents.slice(0, 20).map(function (event) {
-      var detail = eventDetail(event);
-      return el('div', { 'class': 'event', role: 'listitem' },
-        el('div', { 'class': 'when', text: (event.date || '').slice(5) + ' ' + (event.time || '') }),
-        el('div', { 'class': 'what' }, el('b', { text: event.event || '' }), detail ? ' · ' + detail : '')
-      );
+  function eventsByDay(events) {
+    var days = [];
+    events.forEach(function (event) {
+      var day = days[days.length - 1];
+      if (!day || day.date !== event.date) {
+        day = { date: event.date, events: [] };
+        days.push(day);
+      }
+      day.events.push(event);
     });
+    return days;
+  }
+
+  function repeatedStudyChecksFolded(events) {
+    var runs = [];
+    events.forEach(function (event) {
+      var run = runs[runs.length - 1];
+      var continuesRun = run && event.event === 'study-check' && run[0].event === 'study-check' && run[0].concept === event.concept;
+      if (continuesRun) run.push(event);
+      else runs.push([event]);
+    });
+    return runs;
+  }
+
+  function eventRow(run) {
+    var event = run[0];
+    var detail = eventDetail(event);
+    var repeats = run.length > 1 ? ' ×' + run.length : '';
+    return el('div', { 'class': 'event', role: 'listitem' },
+      el('div', { 'class': 'when', text: event.time || '' }),
+      el('div', { 'class': 'what' }, el('b', { text: (EVENT_LABELS[event.event] || event.event || '') + repeats }), detail ? ' · ' + detail : '')
+    );
+  }
+
+  function dayFold(day, isNewest) {
+    return fold(openDays, day.date, isNewest,
+      [el('b', { text: day.date }), el('span', { 'class': 'muted', text: day.events.length + (day.events.length === 1 ? ' event' : ' events') })],
+      el('div', { role: 'list', 'aria-label': 'Activity on ' + day.date }, repeatedStudyChecksFolded(day.events).map(eventRow))
+    );
+  }
+
+  function eventsCard() {
+    var coreEvents = newestFirst(state.events.filter(function (event) { return !event.language; }));
+    var days = eventsByDay(coreEvents);
+    var shownDays = showOlderDays ? days : days.slice(0, DAYS_SHOWN);
+    var olderCount = days.slice(DAYS_SHOWN).reduce(function (total, day) { return total + day.events.length; }, 0);
     return el('div', { 'class': 'card' },
       el('h2', { text: 'Recent activity (' + coreEvents.length + ')' }),
-      rows.length ? el('div', { role: 'list', 'aria-label': 'Recent activity' }, rows) : el('div', { 'class': 'muted', text: 'No events yet.' }),
+      shownDays.length ? shownDays.map(function (day, index) { return dayFold(day, index === 0); }) : el('div', { 'class': 'muted', text: 'No events yet.' }),
+      !showOlderDays && olderCount ? el('button', { type: 'button', onclick: function () { showOlderDays = true; render(true); } }, 'Show older (' + olderCount + ' events)') : null,
       coreEvents.length < state.events.length ? el('div', { 'class': 'muted', text: 'Events about a language are on the Languages screen.' }) : null
     );
   }
@@ -356,7 +517,7 @@
       replaceChildren(root, [el('div', { 'class': 'card' }, el('div', { text: 'No ledger yet. The first understand-first session creates it.' }))]);
       return;
     }
-    replaceChildren(root, [stageCard(), conceptsCard(), eventsCard()]);
+    replaceChildren(root, [summaryCard(), conceptsCard(), eventsCard()]);
   }
 
   function escapeRegExp(value) {
@@ -508,21 +669,53 @@
     });
   }
 
-  function exampleBlock(concept, note, index, tokens) {
+  function exampleBlock(concept, note, index, tokens, label) {
     var parts = note.split(' | ');
-    return el('div', { 'class': 'example' },
-      el('b', { text: 'Example ' + (index + 1) + ': ' }),
-      marked(parts[0], tokens),
-      parts.slice(1).map(function (part) { return exampleDetail(concept, part, tokens); })
-    );
+    var summary = [
+      el('span', { 'class': 'exn', text: (label || 'Example ' + (index + 1)) + ': ' }),
+      el('span', { 'class': 'ext' }, marked(parts[0], tokens))
+    ];
+    var body = el('div', { 'class': 'exbody' }, parts.slice(1).map(function (part) { return exampleDetail(concept, part, tokens); }));
+    return el('div', { 'class': 'example-item' }, disclosure('example:' + concept.name + '|' + index, summary, body));
   }
 
   function exampleDetail(concept, part, tokens) {
     var colon = part.indexOf(': ');
     if (colon < 0) return el('div', { 'class': 'example-detail' }, marked(part, tokens));
     var key = part.slice(0, colon);
+    var text = part.slice(colon + 2);
     var label = key === 'why' ? 'Why it is ' + concept.name : EXAMPLE_LABELS[key] || key;
-    return el('div', { 'class': 'example-detail' }, el('b', { text: label + ': ' }), marked(part.slice(colon + 2), tokens));
+    if (key === 'where') return codeBlock(label, text, tokens);
+    return el('div', { 'class': 'example-detail' }, el('b', { text: label + ': ' }), marked(text, tokens));
+  }
+
+  function codeBlock(label, locations, tokens) {
+    var lines = locations.split('; ').map(function (line) { return line.trim(); }).filter(Boolean);
+    return el('div', { 'class': 'code' },
+      el('div', { 'class': 'code-head' }, el('span', { text: label }), copyButton(lines.join('\n'))),
+      el('pre', null, el('code', null, lines.map(function (line, index) { return [index ? '\n' : '', codeLine(line, tokens)]; })))
+    );
+  }
+
+  function codeLine(line, tokens) {
+    return line.split(CODE_REFERENCE).map(function (piece, index) {
+      if (index % 2 === 0) return marked(piece, tokens);
+      return el('span', { 'class': piece.indexOf('/') === -1 ? 's' : 'p' }, marked(piece, tokens));
+    });
+  }
+
+  function copyButton(text) {
+    var button = el('button', { type: 'button', 'class': 'copy', 'aria-label': 'Copy code locations', onclick: function () { copyText(button, text); } }, 'Copy');
+    return button;
+  }
+
+  function copyText(button, text) {
+    var finish = function (label) {
+      button.textContent = label;
+      setTimeout(function () { button.textContent = 'Copy'; }, 1600);
+    };
+    if (!navigator.clipboard) { finish('Select the text'); return; }
+    navigator.clipboard.writeText(text).then(function () { finish('Copied'); }, function () { finish('Select the text'); });
   }
 
   function appliedFields(concept, tokens) {
@@ -667,12 +860,15 @@
   }
 
   function dialCard(entry) {
-    var steps = [];
-    for (var rung = 1; rung <= RUNG_NAMES.length; rung++) steps.push(el('div', { 'class': rung <= entry.rung ? 'step done' : 'step' }));
+    var steps = RUNG_NAMES.map(function (name, index) {
+      var rung = index + 1;
+      var tone = (rung <= entry.rung ? 'done' : '') + (rung === entry.rung ? ' current' : '');
+      return el('li', { 'class': tone.trim() }, el('span', { 'class': 'bar' }), el('span', { text: rung + '. ' + name }));
+    });
     return el('div', { 'class': 'card' },
       el('h2', { text: entry.language + ' code dial' }),
       el('div', { 'class': 'big', text: 'Rung ' + entry.rung + ' of ' + RUNG_NAMES.length }),
-      el('div', { 'class': 'steps rungs' }, steps),
+      el('ol', { 'class': 'rungs' }, steps),
       el('div', { 'class': 'muted', text: 'You write ' + RUNG_NAMES[entry.rung - 1] + ' at a time in ' + entry.language + '. Clean streak: ' + entry.streak + '.' })
     );
   }
@@ -777,12 +973,20 @@
     ]);
   }
 
-  function skipAndResetSettings() {
+  function skipSettings() {
+    return el('div', { 'class': 'card' },
+      el('h2', { text: 'Skip the gates' }),
+      el('div', { 'class': 'muted', text: 'The next task runs without understanding gates. Nothing is deleted.' }),
+      el('div', { 'class': 'controls' }, el('button', { onclick: function () { post({ action: 'skip-gates' }); } }, 'Skip the gates for the next task'))
+    );
+  }
+
+  function resetSettings() {
     var resetBox = el('div', { 'class': 'controls' });
     resetControls(resetBox);
-    return el('div', { 'class': 'card' },
-      el('h2', { text: 'Skip or reset' }),
-      el('div', { 'class': 'controls' }, el('button', { onclick: function () { post({ action: 'skip-gates' }); } }, 'Skip the gates for the next task')),
+    return el('div', { 'class': 'card danger-zone' },
+      el('h2', { text: 'Reset' }),
+      el('div', { 'class': 'muted', text: 'Your stage goes back to 1 and the gates start from the beginning. Your concepts, code dial and history stay.' }),
       resetBox
     );
   }
@@ -796,7 +1000,7 @@
       replaceChildren(root, [storageSettings(), el('div', { 'class': 'card' }, el('div', { text: 'No ledger yet. The first understand-first session creates it.' }))]);
       return;
     }
-    replaceChildren(root, [storageSettings(), stageSettings(), languageSettings(), modeSettings(), skipAndResetSettings()]);
+    replaceChildren(root, [storageSettings(), stageSettings(), languageSettings(), modeSettings(), skipSettings(), resetSettings()]);
   }
 
   function backendNamed(name) {
@@ -885,11 +1089,171 @@
     );
   }
 
+  function referencesIn(text) {
+    return Array.from(text.matchAll(/(PR|ticket|TFS)\s*(\d{5,7})/gi)).map(function (match) {
+      var kind = match[1].toUpperCase() === 'TICKET' ? 'Ticket' : match[1].toUpperCase();
+      return { id: match[2], label: kind + ' ' + match[2] };
+    });
+  }
+
+  function exampleTitle(note) {
+    return note.split(' | ')[0];
+  }
+
+  function examplesTiedTo(item) {
+    var workIds = {};
+    referencesIn(item.title + ' ' + item.source).forEach(function (reference) { workIds[reference.id] = true; });
+    var hasIds = Object.keys(workIds).length > 0;
+    var skills = item.concepts.map(function (concept) { return concept.name; });
+    var tied = [];
+    state.concepts.forEach(function (concept) {
+      concept.exampleNotes.forEach(function (note, index) {
+        var title = exampleTitle(note);
+        var ids = referencesIn(title);
+        var sharesId = ids.some(function (reference) { return workIds[reference.id]; });
+        var sameProject = !hasIds && ids.length === 0 && title.indexOf('understand-first') !== -1 && skills.indexOf(concept.name) !== -1;
+        if (sharesId || sameProject) tied.push({ concept: concept, note: note, index: index });
+      });
+    });
+    return tied;
+  }
+
+  function referencesOf(item, tied) {
+    var seen = {};
+    var labels = [];
+    [item.title, item.source].concat(tied.map(function (example) { return exampleTitle(example.note); })).forEach(function (text) {
+      referencesIn(text).forEach(function (reference) {
+        if (seen[reference.label]) return;
+        seen[reference.label] = true;
+        labels.push(reference.label);
+      });
+    });
+    return labels;
+  }
+
+  function buildProjects() {
+    return state.work.map(function (item, index) {
+      var tied = examplesTiedTo(item);
+      return { item: item, index: index, tied: tied, references: referencesOf(item, tied) };
+    }).sort(function (a, b) {
+      if (a.item.date === b.item.date) return b.index - a.index;
+      return a.item.date < b.item.date ? 1 : -1;
+    });
+  }
+
+  function projectSearchText(project) {
+    var item = project.item;
+    var parts = [item.title, item.kind, item.understanding, item.date, item.source, item.problem, item.solution, item.gaps, project.references.join(' ')];
+    item.concepts.forEach(function (concept) { parts.push(concept.name, concept.use); });
+    project.tied.forEach(function (example) { parts.push(example.note); });
+    return parts.join(' ');
+  }
+
+  function matchingProjects(projects) {
+    var tokens = projectQuery.toLowerCase().split(/\s+/).filter(Boolean);
+    return projects.filter(function (project) {
+      if (projectUnderstanding && project.item.understanding !== projectUnderstanding) return false;
+      if (projectKind && project.item.kind !== projectKind) return false;
+      return containsEveryToken(projectSearchText(project), tokens);
+    });
+  }
+
+  function projectListItem(project, isSelected) {
+    var item = project.item;
+    return el('button', {
+      type: 'button',
+      'class': 'project-item',
+      'aria-current': isSelected ? 'true' : 'false',
+      onclick: function () { selectedProjectKey = workKey(item); renderProjects(true); }
+    },
+      el('span', { 'class': 'title', text: item.title }),
+      el('span', { 'class': 'chips' }, el('span', { 'class': 'chip static new', text: item.kind || 'work' }), understandingChip(item.understanding), el('span', { 'class': 'muted', text: item.date })),
+      project.references.length ? el('span', { 'class': 'refs', text: project.references.join(' · ') }) : null
+    );
+  }
+
+  function levelMeter(status) {
+    var rank = { 'learning': 1, 'getting it': 2, 'solid': 3 }[status] || 0;
+    return el('span', { 'class': 'meter', 'aria-hidden': 'true' }, [1, 2, 3].map(function (step) { return el('i', { 'class': step <= rank ? 'on ' + statusClass(status) : '' }); }));
+  }
+
+  function skillRow(concept, statuses) {
+    var status = liveStatus(statuses, concept.name);
+    return el('div', { 'class': 'skill-row', role: 'listitem' },
+      el('b', { text: concept.name }),
+      el('span', { 'class': 'level' }, levelMeter(status), el('span', { 'class': 'chip static ' + statusClass(status === 'not in ledger' ? 'new' : status), title: 'Current status in your ledger', text: status })),
+      el('span', { text: concept.use || '' })
+    );
+  }
+
+  function projectDetail(project, statuses) {
+    var item = project.item;
+    var skills = item.concepts.map(function (concept) { return skillRow(concept, statuses); });
+    var decisions = project.tied.map(function (example) { return exampleBlock(example.concept, example.note, example.index, [], example.concept.name); });
+    return el('div', { 'class': 'project-detail' },
+      el('div', { 'class': 'card' },
+        el('h1', { text: item.title }),
+        el('div', { 'class': 'chips' }, el('span', { 'class': 'chip static new', text: item.kind || 'work' }), understandingChip(item.understanding), el('span', { 'class': 'muted', text: [item.date, item.source].filter(Boolean).join(' · ') })),
+        project.references.length ? el('div', { 'class': 'chips' }, project.references.map(function (label) { return el('span', { 'class': 'ref', text: label }); })) : null,
+        el('div', { 'class': 'two-up' },
+          el('div', null, el('h3', { text: 'Problem' }), el('p', { text: item.problem || 'Not recorded.' })),
+          el('div', null, el('h3', { text: 'What we did' }), el('p', { text: item.solution || 'Not recorded.' })))),
+      el('div', { 'class': 'card' },
+        el('h3', { text: 'Skills used and where you stand' }),
+        skills.length ? el('div', { role: 'list', 'aria-label': 'Skills used' }, skills) : el('div', { 'class': 'muted', text: 'No skills recorded for this work.' })),
+      el('div', { 'class': 'card' },
+        el('h3', { text: 'Decisions and why (' + decisions.length + ')' }),
+        decisions.length ? el('div', { 'class': 'body' }, decisions) : el('div', { 'class': 'muted', text: 'No examples are tied to this work yet.' })),
+      el('div', { 'class': 'card' },
+        el('h3', { text: 'Tradeoffs' }),
+        el('div', { 'class': 'not-recorded', text: 'Not recorded yet. A work entry has no tradeoffs line today. The reasons under Decisions and why are the closest record.' })),
+      item.gaps ? el('div', { 'class': 'card' }, el('h3', { text: 'Still unclear' }), el('p', { text: item.gaps })) : null
+    );
+  }
+
+  function buildProjectControls(root) {
+    var input = el('input', { id: 'project-search', type: 'search', placeholder: 'Find a PR, ticket or project', 'aria-label': 'Find a project' });
+    input.addEventListener('input', function () { projectQuery = input.value; renderProjects(false); });
+    var parts = { input: input, filters: el('div', { 'class': 'results' }), count: el('div', { 'class': 'muted', role: 'status' }), list: el('div', { 'class': 'project-list' }), detail: el('div') };
+    replaceChildren(root, [
+      el('div', { 'class': 'project-column' },
+        el('div', { 'class': 'card' }, el('h2', { text: 'Projects' }), input, parts.filters),
+        parts.count,
+        parts.list),
+      parts.detail
+    ]);
+    return parts;
+  }
+
+  function renderProjects(isForced) {
+    var root = document.getElementById('projects');
+    if (!projectParts) projectParts = buildProjectControls(root);
+    var key = JSON.stringify([state.work, state.concepts, projectQuery, projectUnderstanding, projectKind, selectedProjectKey]);
+    if (!isForced && key === shownProjects) return;
+    shownProjects = key;
+    var statuses = conceptStatusByName();
+    var projects = buildProjects();
+    var shown = matchingProjects(projects);
+    var selected = shown.filter(function (project) { return workKey(project.item) === selectedProjectKey; })[0] || shown[0];
+    replaceChildren(projectParts.filters, [
+      recentFilterGroup('Understanding', UNDERSTANDING_LEVELS, projectUnderstanding, function (value) { projectUnderstanding = value; renderProjects(true); }),
+      recentFilterGroup('Kind', WORK_KINDS, projectKind, function (value) { projectKind = value; renderProjects(true); })
+    ]);
+    projectParts.count.textContent = shown.length + ' of ' + projects.length + ' projects shown';
+    replaceChildren(projectParts.list, shown.length
+      ? shown.map(function (project) { return projectListItem(project, project === selected); })
+      : [el('div', { 'class': 'card muted', text: 'Nothing matches. Try fewer words, or clear the filters.' })]);
+    replaceChildren(projectParts.detail, [selected
+      ? projectDetail(selected, statuses)
+      : el('div', { 'class': 'card muted', text: state.work.length ? 'Pick a project on the left to see its overview.' : 'No projects yet. Claude adds one when a piece of work or a walkthrough ends.' })]);
+  }
+
   function render(isForced) {
     if (!state) return;
-    if (isForced) { shownStats = ''; shownLanguages = ''; shownSettings = ''; shownRecent = ''; }
+    if (isForced) { shownStats = ''; shownLanguages = ''; shownSettings = ''; shownRecent = ''; shownProjects = ''; }
     renderStats();
     renderRecent(false);
+    renderProjects(false);
     renderLanguages();
     renderSettings();
   }

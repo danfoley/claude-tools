@@ -50,16 +50,88 @@ pull_from_storage() {
   storage_notice="STORAGE PROBLEM, tell the learner before anything else: ${output}"$'\n'"Their data is safe in their storage backend, but this session started from the local copy, which may be missing or out of date. Ask whether to carry on with local storage only. Only if they say yes, run: python3 ${hooks_dir%/*}/scripts/sync.py disable. Never run it without their answer."
 }
 
+plugin_version() {
+  sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' "${hooks_dir%/*}/.claude-plugin/plugin.json" | head -n 1
+}
+
+release_notes_for() {
+  local version="$1" line in_section=0 notes=""
+  [ -r "$whats_new_path" ] || return 0
+  while IFS= read -r line; do
+    case "$line" in
+      "## ${version}") in_section=1 ;;
+      "## "*) [ "$in_section" -eq 1 ] && break ;;
+      *) [ "$in_section" -eq 1 ] && notes+="${line}"$'\n' ;;
+    esac
+  done < "$whats_new_path"
+  printf '%s' "$notes"
+}
+
+announce_update() {
+  local version seen="" notes
+  version="$(plugin_version)"
+  [ -n "$version" ] || return 0
+  [ -r "$version_stamp_path" ] && seen="$(<"$version_stamp_path")"
+  [ "$seen" = "$version" ] && return 0
+  { mkdir -p "$data_dir" && printf '%s\n' "$version" > "$version_stamp_path"; } 2>/dev/null || true
+  [ -n "$seen" ] || [ -r "$ledger_path" ] || return 0
+  if [ -n "$seen" ]; then
+    update_notice="understand-first updated from ${seen} to ${version}"
+  else
+    update_notice="understand-first ${version} is installed"
+  fi
+  notes="$(release_notes_for "$version")"
+  [ -z "$notes" ] || update_notice+=$'\n'"What's new:"$'\n'"${notes%$'\n'}"
+}
+
+ledger_stage() {
+  local line
+  [ -r "$ledger_path" ] || return 0
+  while IFS= read -r line; do
+    case "$line" in
+      "stage: "*) printf '%s' "${line#stage: }"; return 0 ;;
+      "#"*) return 0 ;;
+    esac
+  done < "$ledger_path"
+}
+
+announce_startup() {
+  local stage
+  stage="$(ledger_stage)"
+  if [ -z "$stage" ]; then
+    status_line="Running understand first (no ledger yet, the first session creates it)"
+  elif [ -n "$viewer_url" ]; then
+    status_line="Running understand first at level ${stage}, view is here ${viewer_url}"
+  else
+    status_line="Running understand first at level ${stage}. The viewer is off: turn it on with /understand-first:menu viewer on"
+  fi
+}
+
+is_compaction() {
+  case "$hook_input" in
+    *'"source"'*'"compact"'*) return 0 ;;
+  esac
+  return 1
+}
+
 hooks_dir="$(script_dir)"
 data_dir="${UNDERSTAND_FIRST_DATA:-$HOME/.claude/understand-first}"
 ledger_path="${data_dir}/ledger.md"
 events_path="${data_dir}/events.jsonl"
+version_stamp_path="${data_dir}/last-seen-version"
+whats_new_path="${hooks_dir%/*}/whats-new.md"
 viewer_url=""
 storage_notice=""
+update_notice=""
+status_line=""
+hook_input=""
+IFS= read -r -t 2 -d '' hook_input || true
 
 pull_from_storage
 install_status_script
 start_viewer
+announce_update
+announce_startup
 
 rules="$(<"${hooks_dir}/core-rules.md")"
 
@@ -71,4 +143,10 @@ fi
 
 context="${rules}"${storage_notice:+$'\n\n'"${storage_notice}"}$'\n\n'"Ledger path: ${ledger_path}"$'\n'"Event log path: ${events_path}"$'\n'"Source map: ${hooks_dir%/*}/sources.md"$'\n'"Added sources: ${data_dir}/sources-added.md"$'\n'"Work log: ${data_dir}/work.md"${viewer_url:+$'\n'"Live viewer: ${viewer_url}"}$'\n\n'"Ledger contents:"$'\n'"${ledger}"
 
-printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s"}}\n' "$(escape_for_json "$context")"
+system_message=""
+is_compaction || system_message="$status_line"
+[ -z "$update_notice" ] || system_message="${system_message:+${system_message}$'\n\n'}${update_notice}"
+system_message_field=""
+[ -z "$system_message" ] || system_message_field="\"systemMessage\":\"$(escape_for_json "$system_message")\","
+
+printf '{%s"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s"}}\n' "$system_message_field" "$(escape_for_json "$context")"

@@ -5,6 +5,8 @@ A Claude Code plugin marketplace. The plugin lives in `understand-first/`.
 ### Release rule
 Every commit that changes anything under `understand-first/` must bump `version` in `understand-first/.claude-plugin/plugin.json` in the same commit. Otherwise users never receive the change: `claude plugin update` reports "already at the latest version" and they keep the old copy.
 
+The same commit adds a `## <version>` section to `understand-first/whats-new.md` with one bullet per change a user will notice. The session-start hook shows that section once in the Claude Code view after an update, and a test fails when the current version has no section.
+
 ### Which number to bump (Semantic Versioning 2.0.0, https://semver.org)
 - MAJOR (x.0.0): a backward-incompatible change. While the version is 0.y.z, do not use it.
 - MINOR (0.x.0): new backward-compatible functionality. While the version is 0.y.z, also use it for backward-incompatible changes, because 0.y.z is initial development where anything may change.

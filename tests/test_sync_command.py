@@ -2,6 +2,7 @@ import contextlib
 import io
 import json
 import os
+import socket
 import subprocess
 import sys
 import tempfile
@@ -243,12 +244,109 @@ class TickCommandTest(TemporaryFolders):
 
 
 class SessionStartHookTest(TemporaryFolders):
-    def start_session(self):
+    def run_hook(self, source="startup", environment=None):
         hook = SCRIPTS.parent / "hooks" / "session-start"
-        environment = {**os.environ, "UNDERSTAND_FIRST_DATA": str(self.data)}
-        result = subprocess.run([str(hook)], env=environment, capture_output=True, text=True)
+        environment = {**os.environ, "UNDERSTAND_FIRST_DATA": str(self.data), **(environment or {})}
+        payload = json.dumps({"hook_event_name": "SessionStart", "source": source})
+        result = subprocess.run([str(hook)], env=environment, input=payload, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
-        return json.loads(result.stdout)["hookSpecificOutput"]["additionalContext"]
+        return json.loads(result.stdout)
+
+    def system_message(self, **arguments):
+        return self.run_hook(**arguments).get("systemMessage", "")
+
+    def start_session(self):
+        return self.run_hook()["hookSpecificOutput"]["additionalContext"]
+
+    def stop_viewer(self, environment):
+        viewer = SCRIPTS / "viewer.py"
+        subprocess.run(
+            [sys.executable, str(viewer), "stop"],
+            env={**os.environ, "UNDERSTAND_FIRST_DATA": str(self.data), **environment},
+            capture_output=True,
+            check=False,
+        )
+
+    def plugin_version(self):
+        manifest = SCRIPTS.parent / ".claude-plugin" / "plugin.json"
+        return json.loads(manifest.read_text())["version"]
+
+    def release_notes(self):
+        lines = (SCRIPTS.parent / "whats-new.md").read_text().splitlines()
+        heading = f"## {self.plugin_version()}"
+        if heading not in lines:
+            return []
+        notes = []
+        for line in lines[lines.index(heading) + 1 :]:
+            if line.startswith("## "):
+                break
+            if line.strip():
+                notes.append(line)
+        return notes
+
+    def remember_version(self, version):
+        (self.data / "ledger.md").write_text("stage: 1\n")
+        (self.data / "last-seen-version").write_text(f"{version}\n")
+
+    def test_after_an_update_the_learner_is_shown_what_is_new(self):
+        self.remember_version("0.0.1")
+        message = self.run_hook()["systemMessage"]
+        self.assertIn(f"updated from 0.0.1 to {self.plugin_version()}", message)
+        for note in self.release_notes():
+            self.assertIn(note, message)
+
+    def test_the_update_notice_is_shown_once(self):
+        self.remember_version("0.0.1")
+        self.run_hook()
+        self.assertNotIn("What's new", self.system_message())
+
+    def test_no_update_notice_when_the_version_was_already_seen(self):
+        self.remember_version(self.plugin_version())
+        message = self.system_message()
+        self.assertNotIn("updated from", message)
+        self.assertNotIn("What's new", message)
+
+    def test_an_existing_learner_without_a_record_is_told_the_installed_version(self):
+        (self.data / "ledger.md").write_text("stage: 1\n")
+        message = self.run_hook()["systemMessage"]
+        self.assertIn(f"understand-first {self.plugin_version()} is installed", message)
+
+    def test_a_brand_new_install_gets_no_update_notice_but_records_the_version(self):
+        self.assertNotIn("is installed", self.system_message())
+        self.assertEqual((self.data / "last-seen-version").read_text().strip(), self.plugin_version())
+
+    def test_a_brand_new_install_says_there_is_no_ledger_yet(self):
+        self.assertEqual(
+            self.system_message(),
+            "Running understand first (no ledger yet, the first session creates it)",
+        )
+
+    def test_every_startup_says_the_level_and_that_the_viewer_is_off(self):
+        self.remember_version(self.plugin_version())
+        (self.data / "ledger.md").write_text("stage: 3\nstage-since: 2026-10-26\n")
+        self.assertEqual(
+            self.system_message(),
+            "Running understand first at level 3. The viewer is off: turn it on with /understand-first:menu viewer on",
+        )
+
+    def test_startup_gives_the_viewer_address_when_the_viewer_is_on(self):
+        with socket.socket() as probe:
+            probe.bind(("127.0.0.1", 0))
+            environment = {"UNDERSTAND_FIRST_PORT": str(probe.getsockname()[1])}
+        self.addCleanup(self.stop_viewer, environment)
+        self.remember_version(self.plugin_version())
+        (self.data / "ledger.md").write_text("stage: 3\nviewer: on\n")
+        self.assertEqual(
+            self.system_message(environment=environment),
+            f"Running understand first at level 3, view is here http://127.0.0.1:{environment['UNDERSTAND_FIRST_PORT']}",
+        )
+
+    def test_a_compaction_does_not_repeat_the_startup_line(self):
+        self.remember_version(self.plugin_version())
+        self.assertEqual(self.system_message(source="compact"), "")
+
+    def test_the_current_version_has_release_notes(self):
+        self.assertTrue(self.release_notes(), "add a section for this version to understand-first/whats-new.md")
 
     def test_pulls_the_backend_ledger_before_reading_it(self):
         (self.cloud / "ledger.md").write_text("stage: 4\nfrom the cloud\n")

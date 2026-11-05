@@ -42,7 +42,9 @@ type Ledger = {
   setStatus: (concept: string, status: string) => void;
   addWork: (item: SeededWork) => void;
   removeWork: () => void;
+  addEvents: (...events: SeededEvent[]) => void;
 };
+type SeededEvent = { date: string; time: string; event: string; concept: string; note: string; language: string };
 type SeededWork = {
   title: string; kind: string; date: string; source: string; understanding: string;
   problem: string; solution: string; concepts: Array<[name: string, use: string]>; gaps: string;
@@ -98,6 +100,7 @@ const SEEDED_WORK: SeededWork[] = [
   },
 ];
 const ALL_CONCEPTS = SEEDED_CONCEPTS.map(([name]) => name);
+const CONCEPTS_BY_STATUS = ['idempotency', 'lease-with-expiry', 'checkpointing', 'batching', 'failure-isolation'];
 
 const test = base.extend<{ ledger: Ledger }, { viewerServer: ViewerServer }>({
   viewerServer: [
@@ -133,6 +136,7 @@ const test = base.extend<{ ledger: Ledger }, { viewerServer: ViewerServer }>({
         },
         addWork: item => appendFileSync(join(viewerServer.dataDir, 'work.md'), `\n${workBlock(item)}`),
         removeWork: () => rmSync(join(viewerServer.dataDir, 'work.md'), { force: true }),
+        addEvents: (...events) => appendFileSync(join(viewerServer.dataDir, 'events.jsonl'), events.map(event => JSON.stringify(event)).join('\n') + '\n'),
       });
     },
     { auto: true },
@@ -159,8 +163,9 @@ test.describe('stats screen', () => {
   test('clicking the same status again brings every concept back', async ({ page }) => {
     await summaryChip(page, '2 learning').click();
     await summaryChip(page, '2 learning').click();
+    await expandConceptGroups(page);
 
-    await expect(statsConcepts(page)).toHaveText(namesStartingWith(ALL_CONCEPTS));
+    await expect(statsConcepts(page)).toHaveText(namesStartingWith(CONCEPTS_BY_STATUS));
     await expect(page.getByRole('heading', { name: 'Concepts (5)' })).toBeVisible();
     await expect(summaryChip(page, '2 learning')).toHaveAttribute('aria-pressed', 'false');
   });
@@ -171,16 +176,44 @@ test.describe('stats screen', () => {
     await summaryChip(page, '2 getting it').click();
     await expect(page.getByRole('button', { name: 'Show all' })).toBeVisible();
     await page.getByRole('button', { name: 'Show all' }).click();
+    await expandConceptGroups(page);
 
-    await expect(statsConcepts(page)).toHaveText(namesStartingWith(ALL_CONCEPTS));
+    await expect(statsConcepts(page)).toHaveText(namesStartingWith(CONCEPTS_BY_STATUS));
     await expect(page.getByRole('button', { name: 'Show all' })).toBeHidden();
   });
 
-  test('clicking the status on a concept row filters by that status', async ({ page }) => {
-    await statsConcepts(page).filter({ hasText: 'failure-isolation' }).getByRole('button', { name: 'new' }).click();
+  test('groups the concepts by status and opens only the learning group', async ({ page }) => {
+    await expect(statsConcepts(page)).toHaveText([/^idempotency/, /^lease-with-expiry/]);
 
-    await expect(statsConcepts(page)).toHaveText([/^failure-isolation/]);
-    await expect(page.getByRole('heading', { name: 'Concepts (1 new of 5)' })).toBeVisible();
+    await expandConceptGroups(page);
+
+    await expect(statsConcepts(page)).toHaveText(namesStartingWith(CONCEPTS_BY_STATUS));
+  });
+
+  test('activity is grouped by day with readable event names', async ({ page }) => {
+    const day = page.getByRole('region', { name: 'Stats' }).getByRole('list', { name: 'Activity on 2026-10-24' });
+
+    await expect(day.getByRole('listitem')).toHaveCount(1);
+    await expect(day.getByRole('listitem')).toContainText('Gate retry');
+    await expect(day.getByRole('listitem')).toContainText('idempotency');
+  });
+
+  test('older days wait behind a button and repeated study checks fold into one line', async ({ page, ledger }) => {
+    ledger.addEvents(
+      { date: '2026-10-26', time: '10:00', event: 'study-check', concept: 'idempotency', note: '', language: '' },
+      { date: '2026-10-26', time: '10:01', event: 'study-check', concept: 'idempotency', note: '', language: '' },
+      { date: '2026-10-27', time: '10:00', event: 'phase-end', concept: '', note: 'third day', language: '' },
+    );
+    const stats = page.getByRole('region', { name: 'Stats' });
+
+    await expect(stats.getByRole('button', { name: 'Show older (1 events)' })).toBeVisible({ timeout: 10_000 });
+    await stats.getByText('2026-10-26', { exact: true }).click();
+    await expect(stats.getByRole('list', { name: 'Activity on 2026-10-26' }).getByRole('listitem')).toHaveText([/Study check ×2/]);
+
+    await stats.getByRole('button', { name: 'Show older (1 events)' }).click();
+    await stats.getByText('2026-10-24', { exact: true }).click();
+
+    await expect(stats.getByRole('list', { name: 'Activity on 2026-10-24' }).getByRole('listitem')).toHaveCount(1);
   });
 
   test('a status with no concepts shows an empty message', async ({ page }) => {
@@ -198,7 +231,8 @@ test.describe('stats screen', () => {
     });
     await test.step('clear the filter', async () => {
       await summaryChip(page, '2 getting it').click();
-      await expect(statsConcepts(page)).toHaveText(namesStartingWith(ALL_CONCEPTS));
+      await expandConceptGroups(page);
+      await expect(statsConcepts(page)).toHaveText(namesStartingWith(CONCEPTS_BY_STATUS));
     });
     await test.step('filter by learning again', async () => {
       await summaryChip(page, '2 learning').click();
@@ -220,34 +254,52 @@ test.describe('stats screen', () => {
     await expect(statsConcepts(page)).toHaveText([/^idempotency/, /^lease-with-expiry/]);
   });
 
-  test('opening a concept row numbers its examples and explains what, where and why', async ({ page, ledger }) => {
+  test('opening a concept row lists its examples as one line each until one is opened', async ({ page, ledger }) => {
     ledger.addConcepts(conceptWithExamples('retry-safety', ['sent twice', 'skipped a stored id', 'resumed from a marker']));
+    await expandConceptGroups(page);
     await expect(statsConcepts(page)).toHaveCount(6, { timeout: 10_000 });
     const row = statsConcepts(page).filter({ hasText: 'retry-safety' });
-    await expect(row.getByText('skipped a stored id')).toBeHidden();
 
-    await row.locator('summary').click();
+    await row.locator('summary').first().click();
 
     await expect(row.getByText('Example 1:', { exact: false })).toBeVisible();
-    await expect(row.getByText('Example 2:', { exact: false })).toBeVisible();
+    await expect(row.getByText('Example 2: skipped a stored id')).toBeVisible();
     await expect(row.getByText('Example 3:', { exact: false })).toBeVisible();
+    await expect(row.getByText('what 2')).toBeHidden();
+
+    await row.getByText('Example 2:', { exact: false }).click();
+
     await expect(row.getByText('What it is: what 2')).toBeVisible();
-    await expect(row.getByText('Where in the code: where 2')).toBeVisible();
     await expect(row.getByText('Why it is retry-safety: why 2')).toBeVisible();
+    await expect(row.getByText('what 1')).toBeHidden();
+  });
+
+  test('where in the code is a code block with a copy button', async ({ page, ledger }) => {
+    ledger.addConcepts(conceptWithExamples('retry-safety', ['sent twice']));
+    await expandConceptGroups(page);
+    const row = statsConcepts(page).filter({ hasText: 'retry-safety' });
+    await expect(row).toHaveCount(1, { timeout: 10_000 });
+
+    await row.locator('summary').first().click();
+    await row.getByText('Example 1:', { exact: false }).click();
+
+    await expect(row.locator('.code')).toContainText('Where in the code');
+    await expect(row.locator('.code pre')).toHaveText('where 1');
+    await expect(row.getByRole('button', { name: 'Copy code locations' })).toBeVisible();
   });
 
   test('an example written as plain text still shows under its number', async ({ page }) => {
-    await statsConcepts(page).filter({ hasText: 'idempotency' }).locator('summary').click();
+    await statsConcepts(page).filter({ hasText: 'idempotency' }).locator('summary').first().click();
 
     await expect(statsConcepts(page).filter({ hasText: 'idempotency' }).getByText('Example 1: example one (PR 1): something')).toBeVisible();
   });
 
   test('an opened concept row stays open when the stats refresh', async ({ page, ledger }) => {
-    await statsConcepts(page).filter({ hasText: 'idempotency' }).locator('summary').click();
+    await statsConcepts(page).filter({ hasText: 'idempotency' }).locator('summary').first().click();
 
     ledger.addConcepts(conceptBlock('retries', 'solid'));
 
-    await expect(statsConcepts(page)).toHaveCount(6, { timeout: 10_000 });
+    await expect(page.getByRole('button', { name: '1 solid' })).toBeVisible({ timeout: 10_000 });
     await expect(statsConcepts(page).filter({ hasText: 'idempotency' }).getByText('example one (PR 1): something')).toBeVisible();
   });
 
@@ -340,6 +392,76 @@ test.describe('languages screen', () => {
 
     await expect(statsConcepts(page)).toHaveText([/^idempotency/, /^lease-with-expiry/]);
     await expect(page.getByRole('heading', { name: 'Concepts (2 learning of 5)' })).toBeVisible();
+  });
+});
+
+test.describe('projects screen', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.getByRole('link', { name: 'Projects' }).click();
+  });
+
+  test('lists the work newest first and opens the newest one', async ({ page }) => {
+    await expect(projectTitles(page)).toHaveText([
+      'PR 449462: bulk messages sent in batch jobs',
+      'Email digest sends each conversation as it goes',
+      'Renew the wildcard certificate',
+    ]);
+    await expect(projects(page).getByRole('heading', { level: 1 })).toHaveText('PR 449462: bulk messages sent in batch jobs');
+  });
+
+  test('selecting a project shows its problem and what was done', async ({ page }) => {
+    await projects(page).getByRole('button', { name: /Renew the wildcard certificate/ }).click();
+
+    await expect(projects(page).getByRole('heading', { level: 1 })).toHaveText('Renew the wildcard certificate');
+    await expect(projects(page).getByText('the local certificate expired')).toBeVisible();
+    await expect(projects(page).getByText('issued a new one and replaced the encrypted files')).toBeVisible();
+  });
+
+  test('shows each skill used with its current level and how it was used', async ({ page }) => {
+    const skills = projects(page).getByRole('list', { name: 'Skills used' }).getByRole('listitem');
+
+    await expect(skills).toHaveCount(2);
+    await expect(skills.filter({ hasText: 'idempotency' })).toContainText('learning');
+    await expect(skills.filter({ hasText: 'idempotency' })).toContainText('a redelivered batch skips recipients already dispatched');
+    await expect(skills.filter({ hasText: 'batching' })).toContainText('getting it');
+  });
+
+  test('a skill level follows the ledger on the live refresh', async ({ page, ledger }) => {
+    ledger.setStatus('batching', 'solid');
+
+    await expect(projects(page).getByRole('list', { name: 'Skills used' }).getByRole('listitem').filter({ hasText: 'batching' })).toContainText('solid', { timeout: 10_000 });
+  });
+
+  test('finds a project by the number of its PR', async ({ page }) => {
+    await projects(page).getByRole('searchbox', { name: 'Find a project' }).fill('448805');
+
+    await expect(projectTitles(page)).toHaveText(['Email digest sends each conversation as it goes']);
+    await expect(projects(page).getByText('1 of 3 projects shown')).toBeVisible();
+  });
+
+  test('the selected project is marked in the list', async ({ page }) => {
+    await projects(page).getByRole('button', { name: /Renew the wildcard certificate/ }).click();
+
+    await expect(projects(page).getByRole('button', { name: /Renew the wildcard certificate/ })).toHaveAttribute('aria-current', 'true');
+    await expect(projects(page).getByRole('button', { name: /PR 449462/ })).toHaveAttribute('aria-current', 'false');
+  });
+
+  test('lists the decisions tied to a PR as collapsed examples with a code block', async ({ page, ledger }) => {
+    ledger.addConcepts(conceptWithExamples('retry-safety', ['sent twice (PR 449462)', 'unrelated (PR 450999)']));
+    const decisions = projects(page).getByRole('heading', { name: 'Decisions and why (1)' });
+    await expect(decisions).toBeVisible({ timeout: 10_000 });
+    await expect(projects(page).getByText('what 1')).toBeHidden();
+
+    await projects(page).getByText('sent twice (PR 449462)').click();
+
+    await expect(projects(page).getByText('What it is: what 1')).toBeVisible();
+    await expect(projects(page).locator('.code pre')).toHaveText('where 1');
+    await expect(projects(page).getByRole('button', { name: 'Copy code locations' })).toBeVisible();
+    await expect(projects(page).getByText('unrelated (PR 450999)')).toHaveCount(0);
+  });
+
+  test('says tradeoffs are not recorded yet', async ({ page }) => {
+    await expect(projects(page).getByText('Not recorded yet.', { exact: false })).toBeVisible();
   });
 });
 
@@ -838,7 +960,20 @@ function workConcept(page: Page, title: string, concept: string): Locator {
 }
 
 function statsConcepts(page: Page): Locator {
-  return page.getByRole('region', { name: 'Stats' }).getByRole('list', { name: 'Concepts', exact: true }).getByRole('listitem');
+  return page.getByRole('region', { name: 'Stats' }).getByRole('list', { name: / concepts$/ }).getByRole('listitem');
+}
+
+async function expandConceptGroups(page: Page): Promise<void> {
+  const closedGroups = page.getByRole('region', { name: 'Stats' }).locator('details.fold:not([open]):has([aria-label$=" concepts"]) > summary');
+  while ((await closedGroups.count()) > 0) await closedGroups.first().click();
+}
+
+function projects(page: Page): Locator {
+  return page.getByRole('region', { name: 'Projects' });
+}
+
+function projectTitles(page: Page): Locator {
+  return projects(page).locator('.project-item .title');
 }
 
 function languageConcepts(page: Page, language: string): Locator {
