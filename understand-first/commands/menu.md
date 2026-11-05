@@ -3,9 +3,9 @@ description: Show your understand-first stats, change settings, or control the l
 argument-hint: "[settings | recent [search words] | stats [days] | stage <n> | skip | reset | language <name> | add <language> | dial <language> | viewer on|off|open|stop|status | mode dashboard|terminal | dashboard | page]"
 ---
 
-Show the learner their understand-first stats first; settings are a separate screen. Looking at stats is not a learning event, so the stats views only read data. Changing a setting writes only the ledger header lines (never a concept entry) and appends one line to the event log, and it is always done through the plugin's own script, never by editing the files by hand.
+Show the learner their understand-first stats first; settings are a separate screen. Looking at stats is not a learning event, so the stats views only read data. Changing a setting writes only the ledger header lines (never a concept entry) and appends one line to the event log, and it is done through the plugin's own script (`viewer.py act`), except `viewer on|off`, which has no action and changes only the `viewer:` header line with a targeted Edit. Never rewrite the files.
 
-Data directory: `${UNDERSTAND_FIRST_DATA:-$HOME/.claude/understand-first}`. It holds `ledger.md`, `events.jsonl` and `dashboard-url.txt`. If the ledger does not exist, say so and stop; the first session creates it.
+Data directory: `${UNDERSTAND_FIRST_DATA:-$HOME/.claude/understand-first}`. It holds `ledger.md`, `work.md`, `events.jsonl`, `sources-added.md` and `dashboard-url.txt`. If the ledger does not exist, say so and stop; the first session creates it.
 
 Argument: `$ARGUMENTS`
 
@@ -61,7 +61,7 @@ Run `viewer.py state` and print the current values in a few lines: stage and its
 Run `viewer.py act '<json>'` with the matching request and report its one-line answer or its refusal as it came:
 
 - `stage <n>`: `{"action": "stage-down", "to": <n>}`
-- `skip`: `{"action": "skip-gates"}`, then tell the learner Claude will skip the gates for the next task without slowing them down, and will record it in the work log as skipped, so it shows in Recent and can be gone back to.
+- `skip`: `{"action": "skip-gates"}`, then tell the learner Claude will skip the gates for this conversation's next task (it ends when the work log entry is written) without slowing them down, and will record it in the work log as skipped, so it shows in Recent and can be gone back to.
 - `reset`: ask in plain text "Reset to stage 1? Your concepts and code dial stay. Reply yes." and wait. Only on a yes run `{"action": "reset-stage", "confirm": true}`.
 - `language <name>`: `{"action": "set-language", "language": "<name>"}`
 - `add <language>`: `{"action": "add-language", "language": "<language>"}`
@@ -86,7 +86,7 @@ The live viewer is a small local page, served only on this machine at `http://12
 
 Used by `dashboard`, `page`, dashboard mode, and the automatic refresh at the end of each piece of work. `page` also rewrites the dashboard's page file (step 6). When `stats-mode` is not `dashboard` and `dashboard-url.txt` does not exist yet, first tell the learner that the concept ledger and the event log will be published to a private claude.ai page, and ask in plain text whether to go ahead. Stop if they decline.
 
-1. Run `python3 -I "${CLAUDE_PLUGIN_ROOT}/scripts/export_stats.py" <data directory> <scratchpad>/stats-out`. It writes `events.json` and `concepts.json`.
+1. Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/export_stats.py" <data directory> <out directory>`, with the out directory in the session scratchpad or a temp directory. It writes `events.json` and `concepts.json`.
 2. If `dashboard-url.txt` does not exist, create the dashboard once:
    - Call the Artifact tool with `action: "quickstart"`, `intent: "other"`, `design_systems: false`, then publish with the Dashboard `type_url` it returns, the title `Understand First Stats` and `auto_open: "after_first_write"`.
    - Save the new artifact URL in `dashboard-url.txt`.
