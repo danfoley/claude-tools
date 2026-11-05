@@ -1,3 +1,10 @@
+## 0.14.2
+- The Languages screen now lists, under each concept, the examples written in the selected language, each with where it was used and its code block. Each example records its language on a `lang:` line, which Claude writes for every new example.
+- At session start, examples that have a code file but no `lang:` line are tagged automatically from the file ending (.php, .py, .ts, .js, .sh, .go and so on), after a backup. Examples it cannot tag are flagged to Claude so it can add the language.
+
+## 0.14.1
+- Session start now warns Claude when a concept has an "applied in" line for a language that is missing from the code dial, so the language gets added at rung 1 and shows up in the viewer.
+
 ## 0.14.0
 - Your ledger, work log and events are backed up before any sync overwrites them, and at every session start (newest 10 of each kept in the backups folder next to the ledger).
 - Sync no longer replaces your files with an empty or much smaller copy from the backend, and no longer pushes an empty or much smaller local file. It tells you instead.

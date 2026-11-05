@@ -64,6 +64,12 @@ start_viewer() {
   viewer_url="$(python3 "${hooks_dir%/*}/scripts/viewer.py" ensure 2>/dev/null)" || viewer_url=""
 }
 
+migrate_ledger() {
+  PATH="$PATH:/usr/bin:/usr/local/bin:/opt/homebrew/bin"
+  command -v python3 >/dev/null 2>&1 || return 0
+  python3 "${hooks_dir%/*}/scripts/migrate_ledger.py" "$data_dir" >/dev/null 2>&1 || true
+}
+
 pull_from_storage() {
   local output status=0
   PATH="$PATH:/usr/bin:/usr/local/bin:/opt/homebrew/bin"
@@ -156,6 +162,7 @@ hook_input=""
 IFS= read -r -t 2 -d '' hook_input || true
 
 pull_from_storage
+migrate_ledger
 install_status_script
 start_viewer
 announce_update

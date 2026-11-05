@@ -383,6 +383,25 @@ test.describe('languages screen', () => {
     await expect(languageConcepts(page, 'TypeScript').filter({ hasText: 'checkpointing' })).toContainText('Not applied in TypeScript yet.');
   });
 
+  test('shows where a concept was used and its code, only for the language of the code file', async ({ page, ledger }) => {
+    ledger.addConcepts(conceptWithMixedLanguageExamples());
+    await page.reload();
+    await page.getByRole('link', { name: 'Languages' }).click();
+    const languages = page.getByRole('region', { name: 'Languages' });
+
+    await languages.getByRole('button', { name: 'TypeScript' }).click();
+    await languageConcepts(page, 'TypeScript').filter({ hasText: 'retry-safety' }).getByText('typescript sender').click();
+
+    await expect(languages.getByText('src/sender.ts:3')).toBeVisible();
+    await expect(languages.getByText('const key = messageId;')).toBeVisible();
+    await expect(languages.getByText('php sender')).toBeHidden();
+
+    await languages.getByRole('button', { name: 'PHP' }).click();
+
+    await expect(languages.getByText('php sender')).toBeVisible();
+    await expect(languages.getByText('typescript sender')).toBeHidden();
+  });
+
   test('lists only the events logged for the selected language', async ({ page }) => {
     const languages = page.getByRole('region', { name: 'Languages' });
     await expect(languages.getByText('PHP lowered one rung')).toBeVisible();
@@ -1068,6 +1087,24 @@ function conceptWithSnapshot(name: string): string {
     '    > $mail = $this->build($ids);',
     '    > $this->sender->send($mail);',
     '    >> $this->messages->deleteClaimed($ids);',
+    '',
+  ].join('\n');
+}
+function conceptWithMixedLanguageExamples(): string {
+  return [
+    '### retry-safety',
+    '- status: learning',
+    '- applied in PHP: a dispatched-at column',
+    '- applied in TypeScript: an idempotency key',
+    '- examples:',
+    '  - php sender | what: sends | where: Sender::send | why: skips sent rows',
+    '    lang: PHP',
+    '    code: src/Sender.inc:10',
+    '    >> $this->skipSent($rows);',
+    '  - typescript sender | what: sends | where: sendOnce | why: keyed by message id',
+    '    lang: typescript',
+    '    code: src/sender.ts:3',
+    '    >> const key = messageId;',
     '',
   ].join('\n');
 }

@@ -6,6 +6,7 @@ APPLIED_PREFIX = "- applied in "
 SOURCE_PREFIX = "- source: "
 SOURCE_FIELD_COUNT = 4
 WEB_LINK_PREFIXES = ("https://", "http://")
+LANGUAGE_HEADER_PREFIX = "    lang: "
 CODE_HEADER_PREFIX = "    code: "
 CODE_LINE_PREFIX = "    > "
 CODE_HIGHLIGHT_PREFIX = "    >> "
@@ -80,12 +81,15 @@ def parse_concepts(lines):
         if line.startswith("### "):
             concepts.append({
                 "name": line[4:].strip(), "status": "", "verified": "", "words": "", "recall": "", "study": "",
-                "examples": 0, "exampleNotes": [], "exampleCode": [], "applied": {}, "sources": [],
+                "examples": 0, "exampleNotes": [], "exampleCode": [], "exampleLanguages": [], "applied": {}, "sources": [],
             })
         elif concepts and line.startswith("  - "):
             concepts[-1]["examples"] += 1
             concepts[-1]["exampleNotes"].append(line[len("  - "):].strip())
             concepts[-1]["exampleCode"].append(None)
+            concepts[-1]["exampleLanguages"].append("")
+        elif concepts and concepts[-1]["exampleLanguages"] and line.startswith(LANGUAGE_HEADER_PREFIX):
+            concepts[-1]["exampleLanguages"][-1] = line[len(LANGUAGE_HEADER_PREFIX):].strip()
         elif concepts and concepts[-1]["exampleCode"] and line.startswith(CODE_HEADER_PREFIX):
             concepts[-1]["exampleCode"][-1] = parse_code_header(line[len(CODE_HEADER_PREFIX):])
         elif concepts and concepts[-1]["exampleCode"] and concepts[-1]["exampleCode"][-1] and line.startswith(CODE_LINE_PREFIXES):

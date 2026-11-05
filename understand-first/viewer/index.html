@@ -97,6 +97,7 @@
   .row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 10px 0; border-top: 1px solid var(--line); }
   .row:first-of-type { border-top: 0; }
   .row .name { font-weight: 600; overflow-wrap: anywhere; }
+  .row .language-examples { grid-column: 1 / -1; display: grid; gap: 8px; margin-top: 4px; }
   .row .detail { grid-column: 1 / -1; color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
   .concept-row { padding: 10px 0; border-top: 1px solid var(--line); }
   .concept-row:first-of-type { border-top: 0; }
@@ -284,7 +285,7 @@
   var WORK_KINDS = ['built', 'walked through', 'reviewed'];
   var UNDERSTANDING_TONES = { 'understood': 'solid', 'partly': 'learning', 'not yet': 'bad', 'skipped': 'learning' };
   var EXAMPLE_LABELS = { 'what': 'What it is', 'where': 'Where in the code' };
-  var CODE_REFERENCE = /([\w.-]+(?:\/[\w.-]+)+\.\w+|\b[A-Za-z_]\w*::\w+)/;
+  var CODE_REFERENCE =/([\w.-]+(?:\/[\w.-]+)+\.\w+|\b[A-Za-z_]\w*::\w+)/;
   var recentQuery = '';
   var understandingFilter = '';
   var kindFilter = '';
@@ -937,6 +938,14 @@
     );
   }
 
+  function examplesInLanguage(concept, language) {
+    var items = concept.exampleNotes
+      .map(function (note, index) { return { note: note, index: index }; })
+      .filter(function (example) { return (concept.exampleLanguages[example.index] || '').toLowerCase() === language.toLowerCase(); })
+      .map(function (example) { return exampleBlock(concept, example.note, example.index, []); });
+    return items.length ? el('div', { 'class': 'language-examples' }, items) : null;
+  }
+
   function appliedCard(language) {
     var applied = state.concepts.filter(function (concept) { return concept.applied[language]; }).length;
     var rows = state.concepts.map(function (concept) {
@@ -944,7 +953,8 @@
       return el('div', { 'class': 'row', role: 'listitem' },
         el('div', { 'class': 'name', text: concept.name }),
         el('span', { 'class': 'chip static ' + statusClass(concept.status || 'new'), text: concept.status || 'new' }),
-        el('div', { 'class': note ? 'detail' : 'detail none', text: note || 'Not applied in ' + language + ' yet.' })
+        el('div', { 'class': note ? 'detail' : 'detail none', text: note || 'Not applied in ' + language + ' yet.' }),
+        examplesInLanguage(concept, language)
       );
     });
     return el('div', { 'class': 'card' },

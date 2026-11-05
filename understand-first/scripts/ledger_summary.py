@@ -62,7 +62,27 @@ def assemble(ledger, text, concept_lines):
 def header_lines(ledger):
     header = [clipped(f"{key}: {value}", HEADER_LINE_LIMIT) for key, value in list(ledger["header"].items())[:HEADER_LINES_SHOWN]]
     dial = [f"- {entry['language']}: rung {entry['rung']}, clean streak {entry['streak']}" for entry in ledger["dial"]]
-    return header + (["", "Code dial:"] + dial if dial else [])
+    return header + (["", "Code dial:"] + dial if dial else []) + missing_dial_warning(ledger) + untagged_examples_warning(ledger)
+
+
+def untagged_examples_warning(ledger):
+    untagged = sum(language == "" for concept in ledger["concepts"] for language in concept["exampleLanguages"])
+    if not untagged:
+        return []
+    return [f"WARNING: {untagged} examples have no lang: line. Add the language to each so the Languages screen can show it."]
+
+
+def missing_dial_warning(ledger):
+    missing = languages_missing_from_dial(ledger)
+    if not missing:
+        return []
+    return [f"WARNING: used in the ledger but not in the code dial: {', '.join(missing)}. Add each at rung 1 and tell the learner."]
+
+
+def languages_missing_from_dial(ledger):
+    in_dial = {entry["language"].lower() for entry in ledger["dial"]}
+    used = dict.fromkeys(language for concept in ledger["concepts"] for language in concept["applied"])
+    return [language for language in used if language.lower() not in in_dial]
 
 
 def count_line(ledger, text):

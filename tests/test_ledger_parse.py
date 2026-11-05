@@ -27,6 +27,16 @@ class LedgerParseTest(unittest.TestCase):
         self.assertEqual(ledger_parse.parse_ledger("stage: 3\n" + BODY)["concepts"][0]["status"], "learning")
         self.assertEqual(canonical_status(" Getting It "), "getting it")
 
+    def test_each_example_carries_its_language_or_an_empty_string(self):
+        examples = (
+            "- examples:\n"
+            "  - tagged | what: w | where: x | why: y\n    lang: Rust\n    code: a.rs:1\n    > fn a() {}\n"
+            "  - untagged | what: w | where: x | why: y\n    code: b.php:1\n    > $b;\n"
+        )
+        concept = ledger_parse.parse_ledger("stage: 3\n" + BODY + examples)["concepts"][0]
+        self.assertEqual(concept["exampleLanguages"], ["Rust", ""])
+        self.assertEqual(concept["exampleCode"][0]["path"], "a.rs")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -15,13 +15,15 @@ viewer: on
 """
 
 
-def concept(name, status, words="in my words", recall="a recall question", examples=1):
+def concept(name, status, words="in my words", recall="a recall question", examples=1, applied_in=()):
     entry = (
         f"### {name}\n- status: {status}\n- last verified: 2026-10-24\n"
-        f"- in the learner's words: {words}\n- recall question: {recall}\n- examples:\n"
+        f"- in the learner's words: {words}\n- recall question: {recall}\n"
+        + "".join(f"- applied in {language}: how it looks there\n" for language in applied_in)
+        + "- examples:\n"
     )
     for number in range(examples):
-        entry += f"  - example {number} | what: {'x' * 400} | where: y | why: z\n    code: a.php:1\n    >> $code;\n"
+        entry += f"  - example {number} | what: {'x' * 400} | where: y | why: z\n    lang: PHP\n    code: a.php:1\n    >> $code;\n"
     return entry
 
 
@@ -107,6 +109,25 @@ class LedgerSummaryTest(unittest.TestCase):
     def test_a_large_file_with_no_concepts_says_so_loudly(self):
         summary = ledger_summary.summarise(HEADER + "## idempotency\n" + "text " * 2000)
         self.assertIn("WARNING", summary)
+
+    def test_warns_about_a_language_used_in_a_concept_but_missing_from_the_code_dial(self):
+        summary = ledger_summary.summarise(ledger_of(concept("idempotency", "learning", applied_in=["PHP", "Go"])))
+        self.assertIn("WARNING: used in the ledger but not in the code dial: Go", summary)
+
+    def test_warns_how_many_examples_have_no_language_line(self):
+        untagged = "  - a | what: w | where: x | why: y\n    code: a.json:1\n    > {}\n"
+        tagged = "  - b | what: w | where: x | why: y\n    lang: PHP\n    code: b.php:1\n    > $b;\n"
+        summary = ledger_summary.summarise(HEADER + "### c\n- status: learning\n- examples:\n" + untagged + untagged + tagged)
+        self.assertIn("WARNING: 2 examples have no lang: line", summary)
+
+    def test_does_not_warn_when_every_example_has_a_language_line(self):
+        tagged = "  - b | what: w | where: x | why: y\n    lang: PHP\n    code: b.php:1\n    > $b;\n"
+        summary = ledger_summary.summarise(HEADER + "### c\n- status: learning\n- examples:\n" + tagged)
+        self.assertNotIn("have no lang: line", summary)
+
+    def test_does_not_warn_when_every_used_language_is_in_the_code_dial(self):
+        summary = ledger_summary.summarise(ledger_of(concept("idempotency", "learning", applied_in=["php", "Python"])))
+        self.assertNotIn("not in the code dial", summary)
 
 
 if __name__ == "__main__":

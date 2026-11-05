@@ -221,6 +221,7 @@ viewer: off
 - applied in TypeScript: an idempotency key header the server remembers
 - examples:
   - email digest (PR 101) | what: the sender sends a conversation's emails, then deletes its rows | where: DigestNotifier::sendConversations, the sendEmail call followed by deleteRows | why: once a conversation's rows are gone a retry cannot send it again, so running the job twice gives the same result as once
+    lang: PHP
     code: src/DigestNotifier.php:41
     > $mail = $this->buildDigest($conversation);
     >> $this->emailSender->sendEmail($mail);
@@ -228,7 +229,9 @@ viewer: off
   - webhook handler (PR 117) | what: a redelivered event is skipped because its id was already stored | where: WebhookController::handle, the seenEventIds check | why: handling the same event twice changes nothing, which is idempotency
 ```
 
-Code snapshot on an example: right under the example line, add `    code: <path>:<first line number>` (4 spaces), then one line per line of the real code as it was when the example was recorded: `    > ` before an ordinary line, `    >> ` before a line the example is about (the key lines). Copy the whole block that makes the point (the full statement or method body, not only the key line), keep its indentation, and number from the file's real first line. Keep it to about 30 lines. The `where:` text stays as the one-line explanation and the viewer shows it under the code block, so never describe the code inside the block. An example without a snapshot still works and shows only the `where:` text.
+Language on an example: right under the example line, add `    lang: <Language>` (4 spaces), the language the example's code is written in, spelled as in the code dial. Write it on every new example, whether or not it has a code snapshot. The viewer's Languages screen lists an example under that language only, and an example with no `lang:` line is listed under none. Never guess the language from a file ending: you know the language you are writing about.
+
+Code snapshot on an example: right under the example line (and under its `lang:` line), add `    code: <path>:<first line number>` (4 spaces), then one line per line of the real code as it was when the example was recorded: `    > ` before an ordinary line, `    >> ` before a line the example is about (the key lines). Copy the whole block that makes the point (the full statement or method body, not only the key line), keep its indentation, and number from the file's real first line. Keep it to about 30 lines. The `where:` text stays as the one-line explanation and the viewer shows it under the code block, so never describe the code inside the block. An example without a snapshot still works and shows only the `where:` text.
 
 Statuses (they describe where the learner is on a journey, never a grade; not fully understanding something yet is normal and expected):
 - **new**: not yet covered or assessed.
