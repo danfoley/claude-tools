@@ -49,6 +49,8 @@ WORK_CONCEPT_PREFIX = "  - "
 WORK_UNDERSTANDING_LEVELS = ("understood", "partly", "not yet", "skipped")
 LANGUAGE_NAME = re.compile(r"^[A-Za-z0-9 .+#-]{1,40}$")
 SEMVER = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
+KNOWN_VERSIONS = {}
+REQUEST_TIMEOUT_SECONDS = 10
 SECURITY_HEADERS = {
     "Cache-Control": "no-store",
     "X-Content-Type-Options": "nosniff",
@@ -76,7 +78,12 @@ def configured_port():
 
 def plugin_version():
     manifest = PLUGIN_ROOT / ".claude-plugin" / "plugin.json"
-    return json.loads(manifest.read_text())["version"]
+    try:
+        KNOWN_VERSIONS[manifest] = json.loads(manifest.read_text())["version"]
+    except OSError:
+        if manifest not in KNOWN_VERSIONS:
+            raise
+    return KNOWN_VERSIONS[manifest]
 
 
 def update_check_seconds():
@@ -129,10 +136,8 @@ def rewrite_ledger(directory, text):
 def as_int(value, fallback=0):
     try:
         return int(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return fallback
-
-
 
 def parse_work(text):
     scalar_fields = {
@@ -165,12 +170,12 @@ def with_known_understanding(entry):
 def parse_events(text):
     events = []
     for line in text.split("\n"):
-        if not line.strip():
-            continue
         try:
-            events.append(json.loads(line))
+            event = json.loads(line)
         except json.JSONDecodeError:
             continue
+        if isinstance(event, dict):
+            events.append(event)
     return events
 
 
@@ -431,11 +436,24 @@ class ViewerServer(ThreadingHTTPServer):
 
 class ViewerHandler(BaseHTTPRequestHandler):
     server_version = "UnderstandFirstViewer"
+    timeout = REQUEST_TIMEOUT_SECONDS
 
     def log_message(self, format, *args):
         pass
 
     def do_GET(self):
+        self.answer_failures_with_500(self.route_get)
+
+    def do_POST(self):
+        self.answer_failures_with_500(self.route_post)
+
+    def answer_failures_with_500(self, route):
+        try:
+            route()
+        except Exception:
+            self.send_json(500, {"ok": False, "message": "The viewer hit an unexpected problem."})
+
+    def route_get(self):
         if not self.host_is_allowed():
             self.send_json(403, {"ok": False, "message": "Host not allowed."})
             return
@@ -451,7 +469,7 @@ class ViewerHandler(BaseHTTPRequestHandler):
             return
         route()
 
-    def do_POST(self):
+    def route_post(self):
         if self.path != "/api/action":
             self.send_json(404, {"ok": False, "message": "Not found."})
             return
@@ -507,7 +525,7 @@ class ViewerHandler(BaseHTTPRequestHandler):
         self.send_json(200, build_state(self.server.directory))
 
     def send_health(self):
-        self.send_json(200, {"app": "understand-first", "version": plugin_version()})
+        self.send_json(200, {"app": "understand-first", "version": plugin_version(), "pid": os.getpid()})
 
     def send_json(self, status, payload):
         self.send_bytes(status, "application/json", json.dumps(payload).encode())
@@ -528,9 +546,25 @@ def pidfile_path():
 
 def read_pidfile():
     try:
-        return json.loads(pidfile_path().read_text())
-    except (FileNotFoundError, json.JSONDecodeError):
+        record = json.loads(pidfile_path().read_text())
+    except (OSError, ValueError):
         return None
+    has_pid_and_port = isinstance(record, dict) and isinstance(record.get("pid"), int) and isinstance(record.get("port"), int)
+    return record if has_pid_and_port else None
+
+
+def claim_pidfile(port):
+    recorded = read_pidfile()
+    if recorded and recorded["pid"] != os.getpid() and process_is_alive(recorded["pid"]):
+        return
+    record = {"pid": os.getpid(), "port": port, "version": plugin_version(), "root": str(PLUGIN_ROOT)}
+    pidfile_path().write_text(json.dumps(record))
+
+
+def release_pidfile():
+    recorded = read_pidfile()
+    if recorded and recorded["pid"] == os.getpid():
+        pidfile_path().unlink(missing_ok=True)
 
 
 def process_is_alive(pid):
@@ -541,14 +575,18 @@ def process_is_alive(pid):
     return True
 
 
-def is_healthy(port):
+def health_answer(port):
     try:
         connection = http.client.HTTPConnection("127.0.0.1", port, timeout=0.5)
         connection.request("GET", "/api/health", headers={"Host": f"127.0.0.1:{port}"})
         answer = json.loads(connection.getresponse().read())
-    except (OSError, json.JSONDecodeError, http.client.HTTPException):
-        return False
-    return answer.get("app") == "understand-first"
+    except (OSError, ValueError, http.client.HTTPException):
+        return {}
+    return answer if isinstance(answer, dict) else {}
+
+
+def is_healthy(port):
+    return health_answer(port).get("app") == "understand-first"
 
 
 def wait_until_healthy(port, seconds):
@@ -570,18 +608,32 @@ def start_detached():
         )
 
 
-def stop_running_viewer():
+def this_ports_viewer():
     running = read_pidfile()
-    if running and process_is_alive(running["pid"]):
+    if running and running["port"] == configured_port():
+        return running
+    return None
+
+
+def is_the_recorded_viewer(running):
+    return process_is_alive(running["pid"]) and health_answer(running["port"]).get("pid") == running["pid"]
+
+
+def stop_running_viewer():
+    running = this_ports_viewer()
+    if running is None:
+        return False
+    if is_the_recorded_viewer(running):
         os.kill(running["pid"], signal.SIGTERM)
-    pidfile_path().unlink(missing_ok=True)
-    return running is not None
+    elif not process_is_alive(running["pid"]):
+        pidfile_path().unlink(missing_ok=True)
+    return True
 
 
 def command_ensure(arguments):
-    running = read_pidfile()
-    is_current = running and process_is_alive(running["pid"]) and running["version"] == plugin_version()
-    if is_current and is_healthy(running["port"]):
+    running = this_ports_viewer()
+    is_current = running and running.get("version") == plugin_version()
+    if is_current and is_the_recorded_viewer(running):
         print(viewer_url(running["port"]))
         return 0
     stop_running_viewer()
@@ -623,8 +675,8 @@ def command_act(arguments):
 
 def command_status(arguments):
     running = read_pidfile()
-    if running and process_is_alive(running["pid"]) and is_healthy(running["port"]):
-        print(f"running {viewer_url(running['port'])} version {running['version']}")
+    if running and is_the_recorded_viewer(running):
+        print(f"running {viewer_url(running['port'])} version {running.get('version', '')}")
         return 0
     print("not running")
     return 1
@@ -633,7 +685,10 @@ def command_status(arguments):
 def hand_over_when_a_newer_version_is_installed(server):
     while True:
         time.sleep(update_check_seconds())
-        newer = newer_installed_plugin()
+        try:
+            newer = newer_installed_plugin()
+        except Exception:
+            continue
         if newer is not None:
             server.handover_to = newer
             server.shutdown()
@@ -652,13 +707,13 @@ def command_serve(arguments):
     except OSError as failure:
         print(f"Cannot listen on port {configured_port()}: {failure}", file=sys.stderr)
         return 1
-    pidfile_path().write_text(json.dumps({"pid": os.getpid(), "port": server.server_port, "version": plugin_version()}))
+    claim_pidfile(server.server_port)
     signal.signal(signal.SIGTERM, lambda *_: threading.Thread(target=server.shutdown).start())
     threading.Thread(target=hand_over_when_a_newer_version_is_installed, args=(server,), daemon=True).start()
     try:
         server.serve_forever()
     finally:
-        pidfile_path().unlink(missing_ok=True)
+        release_pidfile()
         server.server_close()
     if server.handover_to is not None:
         hand_over(server.handover_to)

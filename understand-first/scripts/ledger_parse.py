@@ -10,8 +10,8 @@ CODE_HEADER_PREFIX = "    code: "
 CODE_LINE_PREFIX = "    > "
 CODE_HIGHLIGHT_PREFIX = "    >> "
 CODE_LINE_PREFIXES = (CODE_LINE_PREFIX, CODE_HIGHLIGHT_PREFIX)
-CODE_HEADER = re.compile(r"^(?P<path>.+):(?P<start>\d+)$")
-DIAL_LINE = re.compile(r"^- (?P<language>.+?): rung (?P<rung>\d+), clean streak (?P<streak>\d+)$")
+CODE_HEADER = re.compile(r"^(?P<path>.+):(?P<start>\d{1,9})$")
+DIAL_LINE = re.compile(r"^- (?P<language>.+?): rung (?P<rung>\d{1,9}), clean streak (?P<streak>\d{1,9})$")
 
 
 def header_end(lines):
