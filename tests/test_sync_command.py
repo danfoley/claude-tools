@@ -2,6 +2,7 @@ import contextlib
 import io
 import json
 import os
+import re
 import socket
 import subprocess
 import sys
@@ -252,8 +253,24 @@ class SessionStartHookTest(TemporaryFolders):
         self.assertEqual(result.returncode, 0, result.stderr)
         return json.loads(result.stdout)
 
-    def system_message(self, **arguments):
+    def coloured_system_message(self, **arguments):
         return self.run_hook(**arguments).get("systemMessage", "")
+
+    def system_message(self, **arguments):
+        return re.sub(r"\x1b\[[0-9;]*m", "", self.coloured_system_message(**arguments))
+
+    def test_the_startup_line_is_coloured(self):
+        self.remember_version(self.plugin_version())
+        (self.data / "ledger.md").write_text("stage: 3\n")
+        message = self.coloured_system_message()
+        self.assertIn("\x1b[1;35mRunning understand first\x1b[0m", message)
+        self.assertIn("\x1b[1;36m3\x1b[0m", message)
+
+    def test_no_colour_is_used_when_no_color_is_set(self):
+        self.remember_version("0.0.1")
+        message = self.coloured_system_message(environment={"NO_COLOR": "1"})
+        self.assertNotIn("\x1b", message)
+        self.assertIn("updated from 0.0.1", message)
 
     def start_session(self):
         return self.run_hook()["hookSpecificOutput"]["additionalContext"]
@@ -290,7 +307,7 @@ class SessionStartHookTest(TemporaryFolders):
 
     def test_after_an_update_the_learner_is_shown_what_is_new(self):
         self.remember_version("0.0.1")
-        message = self.run_hook()["systemMessage"]
+        message = self.system_message()
         self.assertIn(f"updated from 0.0.1 to {self.plugin_version()}", message)
         for note in self.release_notes():
             self.assertIn(note, message)
@@ -308,7 +325,7 @@ class SessionStartHookTest(TemporaryFolders):
 
     def test_an_existing_learner_without_a_record_is_told_the_installed_version(self):
         (self.data / "ledger.md").write_text("stage: 1\n")
-        message = self.run_hook()["systemMessage"]
+        message = self.system_message()
         self.assertIn(f"understand-first {self.plugin_version()} is installed", message)
 
     def test_a_brand_new_install_gets_no_update_notice_but_records_the_version(self):

@@ -12,10 +12,28 @@ escape_for_json() {
   local text="$1"
   text="${text//\\/\\\\}"
   text="${text//\"/\\\"}"
+  text="${text//$'\033'/\\u001b}"
   text="${text//$'\n'/\\n}"
   text="${text//$'\r'/\\r}"
   text="${text//$'\t'/\\t}"
   printf '%s' "$text"
+}
+
+style() {
+  local codes="$1" text="$2"
+  [ -z "${NO_COLOR:-}" ] || { printf '%s' "$text"; return 0; }
+  printf '\033[%sm%s\033[0m' "$codes" "$text"
+}
+
+with_coloured_bullets() {
+  local line coloured=""
+  while IFS= read -r line; do
+    case "$line" in
+      "- "*) coloured+="$(style 36 "-") ${line#- }"$'\n' ;;
+      *) coloured+="${line}"$'\n' ;;
+    esac
+  done <<< "$1"
+  printf '%s' "${coloured%$'\n'}"
 }
 
 install_status_script() {
@@ -76,12 +94,12 @@ announce_update() {
   { mkdir -p "$data_dir" && printf '%s\n' "$version" > "$version_stamp_path"; } 2>/dev/null || true
   [ -n "$seen" ] || [ -r "$ledger_path" ] || return 0
   if [ -n "$seen" ]; then
-    update_notice="understand-first updated from ${seen} to ${version}"
+    update_notice="$(style '1;32' "understand-first updated from ${seen} to ${version}")"
   else
-    update_notice="understand-first ${version} is installed"
+    update_notice="$(style '1;32' "understand-first ${version} is installed")"
   fi
   notes="$(release_notes_for "$version")"
-  [ -z "$notes" ] || update_notice+=$'\n'"What's new:"$'\n'"${notes%$'\n'}"
+  [ -z "$notes" ] || update_notice+=$'\n'"$(style '1;33' "What's new:")"$'\n'"$(with_coloured_bullets "${notes%$'\n'}")"
 }
 
 ledger_stage() {
@@ -96,14 +114,15 @@ ledger_stage() {
 }
 
 announce_startup() {
-  local stage
+  local stage running
   stage="$(ledger_stage)"
+  running="$(style '1;35' "Running understand first")"
   if [ -z "$stage" ]; then
-    status_line="Running understand first (no ledger yet, the first session creates it)"
+    status_line="${running} (no ledger yet, the first session creates it)"
   elif [ -n "$viewer_url" ]; then
-    status_line="Running understand first at level ${stage}, view is here ${viewer_url}"
+    status_line="${running} at level $(style '1;36' "$stage"), view is here $(style '4;36' "$viewer_url")"
   else
-    status_line="Running understand first at level ${stage}. The viewer is off: turn it on with /understand-first:menu viewer on"
+    status_line="${running} at level $(style '1;36' "$stage"). The viewer is off: turn it on with $(style 36 "/understand-first:menu viewer on")"
   fi
 }
 

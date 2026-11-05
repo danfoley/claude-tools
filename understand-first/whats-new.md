@@ -1,3 +1,6 @@
+## 0.11.1
+- The session start line is now in bold and color so it stands out from other plugins' startup output. Set NO_COLOR to turn color off.
+
 ## 0.11.0
 - The viewer now updates itself. Within about 30 seconds of a plugin update the running viewer restarts on the new version, and an open page reloads.
 - The viewer has a lightbulb icon in the browser tab.
