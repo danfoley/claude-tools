@@ -42,7 +42,9 @@ with_coloured_bullets() {
 }
 
 install_status_script() {
-  { mkdir -p "$data_dir" && printf '%s\n' "$(<"${hooks_dir%/*}/statusline/status.sh")" > "${data_dir}/status.sh"; } 2>/dev/null || true
+  local status_script="${hooks_dir%/*}/statusline/status.sh"
+  [ -r "$status_script" ] || return 0
+  { mkdir -p "$data_dir" && printf '%s\n' "$(<"$status_script")" > "${data_dir}/status.sh"; } 2>/dev/null || true
 }
 
 viewer_is_on() {
