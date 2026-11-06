@@ -1,3 +1,6 @@
+## 0.14.5
+- The session start hook no longer exits when the status line script is missing on bash 5.2 (Ubuntu 24.04), which made the hook-version tests fail on GitHub but pass on a Mac.
+
 ## 0.14.4
 - The Languages screen no longer comes up blank when the viewer server was started before an update and is older than the page. It now says so and tells you to restart the viewer.
 
